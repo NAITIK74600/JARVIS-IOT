@@ -1,0 +1,61 @@
+power rails
+3.3 V: DHT sensor, LIRC receiver, MCP3008 reference, logic side of L298N (if jumper removed).
+5 V: Servos (use external 5 V ≥2 A), ultrasonic VCC, PIR VCC, LCD backpack, MQ-3 heater, L298N VIN (motor supply 7–12 V), IR emitter driver (through transistor).
+Ground: Common ground across Pi, external 5 V servo/motor supply, sensors, driver boards.
+servos (pigpio-controlled)
+Servo	Signal (BCM)	Physical pin	Env override	Notes
+Neck	19	Phys 35	SERVO_PIN_NECK	share 5 V rail, start pigpiod
+Left arm	20	Phys 38	SERVO_PIN_ARM_L	same power
+Right arm	21	Phys 40	SERVO_PIN_ARM_R	same power
+ultrasonic sensor (HC-SR04)
+TRIG → BCM 23 (Phys 16)
+ECHO → BCM 24 (Phys 18) through 1 kΩ/2 kΩ divider to 3.3 V
+VCC → 5 V
+GND → ground
+PIR motion
+OUT → BCM 17 (Phys 11)
+VCC → 5 V
+GND → ground
+DHT11/DHT22
+DATA → BCM 4 (Phys 7)
+VCC → 3.3 V
+GND → ground
+Pull-up: 10 kΩ from DATA to 3.3 V (many breakout boards include it)
+MQ-3 alcohol sensor (via MCP3008 ADC)
+Sensor analog → MCP3008 CH0 (default MQ3_ADC_CHANNEL=0)
+MCP3008:
+VDD → 3.3 V
+VREF → 3.3 V
+AGND/DGND → ground
+CLK → BCM 11 (Phys 23)
+DOUT (MISO) → BCM 9 (Phys 21)
+DIN (MOSI) → BCM 10 (Phys 19)
+CS/CE0 → BCM 8 (Phys 24)
+MQ-3 heater VCC → 5 V (warm up 5–10 min)
+MQ-3 GND → ground
+motor driver (L298N-style)
+ENA (motor A PWM) → BCM 12 (Phys 32) — MOTOR_L_EN
+IN1 → BCM 5 (Phys 29) — MOTOR_L_IN1
+IN2 → BCM 6 (Phys 31) — MOTOR_L_IN2
+ENB (motor B PWM) → BCM 13 (Phys 33) — MOTOR_R_EN
+IN3 → BCM 26 (Phys 37) — MOTOR_R_IN1
+IN4 → BCM 16 (Phys 36) — MOTOR_R_IN2
+Logic VCC → 5 V, GND shared.
+Motor VIN → external 7–12 V supply (do not use Pi 5 V); share ground.
+LCD 16×2 (PCF8574 I²C backpack)
+SDA → BCM 2 (Phys 3)
+SCL → BCM 3 (Phys 5)
+VCC → 5 V
+GND → ground
+Default address 0x27 (change via solder pads if needed).
+IR modules (LIRC)
+Receiver: set overlay dtoverlay=gpio-ir,gpio_pin=18 → BCM 18 (Phys 12), VCC 3.3 V, GND.
+Emitter: overlay dtoverlay=gpio-ir-tx,gpio_pin=17 → BCM 17 (Phys 11) through NPN transistor + resistor to 5 V-powered IR LED.
+audio
+Microphone: USB mic or hat (set .env MICROPHONE_INDEX if needed); Vosk expects 16 kHz mono.
+Speaker: 3.5 mm jack or USB DAC into powered speakers.
+optional I²C/SPI/UART extras
+I²C reserved pins: BCM 2/3 already used for LCD.
+Additional SPI devices: leave CE1 (BCM 7 / Phys 26) free.
+UART: TXD BCM 14 (Phys 8), RXD BCM 15 (Phys 10) if you disable serial console.
+This mirrors the latest HARDWARE_PINS.txt; keep that file handy on the Pi so you can confirm everything during the build.

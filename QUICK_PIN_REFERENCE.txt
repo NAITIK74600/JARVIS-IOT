@@ -1,0 +1,144 @@
+╔══════════════════════════════════════════════════════════════╗
+║           JARVIS - QUICK PIN REFERENCE CARD                  ║
+║                  Updated: Nov 1, 2025                        ║
+╚══════════════════════════════════════════════════════════════╝
+
+┌──────────────────────────────────────────────────────────────┐
+│ SERVOS (pigpio - External 5V Power Required!)                │
+├────────────────┬─────────┬──────────┬───────────────────────┤
+│ Servo          │ GPIO    │ Phys Pin │ Notes                  │
+├────────────────┼─────────┼──────────┼───────────────────────┤
+│ Neck           │ 18      │ 12       │ 0°=forward, ±90° range│
+│ Left Hand      │ 23      │ 16       │ 0-180° range          │
+│ Right Hand     │ 24      │ 18       │ 0-180° range          │
+└────────────────┴─────────┴──────────┴───────────────────────┘
+
+┌──────────────────────────────────────────────────────────────┐
+│ SENSORS                                                       │
+├────────────────┬─────────┬──────────┬───────────────────────┤
+│ Sensor         │ GPIO    │ Phys Pin │ Notes                  │
+├────────────────┼─────────┼──────────┼───────────────────────┤
+│ PIR Motion     │ 17      │ 11       │ Digital input         │
+│ DHT Temp/Hum   │ 4       │ 7        │ 1-wire data           │
+│ Ultrasonic TRIG│ 27      │ 13       │ Output trigger        │
+│ Ultrasonic ECHO│ 22      │ 15       │ Input + divider!      │
+└────────────────┴─────────┴──────────┴───────────────────────┘
+
+┌──────────────────────────────────────────────────────────────┐
+│ MOTORS (L298N Driver)                                         │
+├────────────────┬─────────┬──────────┬───────────────────────┤
+│ Motor Signal   │ GPIO    │ Phys Pin │ Function              │
+├────────────────┼─────────┼──────────┼───────────────────────┤
+│ Left Enable    │ 12      │ 32       │ PWM speed control     │
+│ Left IN1       │ 5       │ 29       │ Direction bit 1       │
+│ Left IN2       │ 6       │ 31       │ Direction bit 2       │
+│ Right Enable   │ 13      │ 33       │ PWM speed control     │
+│ Right IN1      │ 26      │ 37       │ Direction bit 1       │
+│ Right IN2      │ 16      │ 36       │ Direction bit 2       │
+└────────────────┴─────────┴──────────┴───────────────────────┘
+
+┌──────────────────────────────────────────────────────────────┐
+│ I2C & SPI                                                     │
+├────────────────┬─────────┬──────────┬───────────────────────┤
+│ Bus/Signal     │ GPIO    │ Phys Pin │ Device                │
+├────────────────┼─────────┼──────────┼───────────────────────┤
+│ I2C SDA        │ 2       │ 3        │ LCD Display           │
+│ I2C SCL        │ 3       │ 5        │ LCD Display           │
+│ SPI MOSI       │ 10      │ 19       │ MCP3008 ADC           │
+│ SPI MISO       │ 9       │ 21       │ MCP3008 ADC           │
+│ SPI CLK        │ 11      │ 23       │ MCP3008 ADC           │
+│ SPI CE0        │ 8       │ 24       │ MCP3008 ADC           │
+└────────────────┴─────────┴──────────┴───────────────────────┘
+
+╔══════════════════════════════════════════════════════════════╗
+║                    CRITICAL WIRING NOTES                     ║
+╚══════════════════════════════════════════════════════════════╝
+
+⚠️  SERVOS: Use external 5V supply (min 2A)
+    - NEVER connect servo VCC to Pi 5V pins!
+    - Common GND: Connect Pi GND + Power Supply GND
+
+⚠️  ULTRASONIC ECHO: Must use voltage divider!
+    - ECHO is 5V output, Pi needs 3.3V input
+    - Use 1kΩ + 2kΩ divider: ECHO→1kΩ→GPIO22
+                                    └→2kΩ→GND
+
+✓  MOTORS: External 7-12V battery for motors
+    - Logic power from Pi 5V
+    - Motor power separate supply
+    - Common GND with Pi
+
+╔══════════════════════════════════════════════════════════════╗
+║                    QUICK TEST COMMANDS                       ║
+╚══════════════════════════════════════════════════════════════╝
+
+# Test all servos
+python3 test_hand_servos.py
+
+# Test neck servo smooth movement
+python3 test_neck_smooth_pigpio.py
+
+# Test neck angle mapping (0° = forward)
+python3 test_neck_angle_mapping.py
+
+# Test complete system
+python3 test_complete_hardware.py
+
+# Check pigpio daemon
+sudo systemctl status pigpiod
+
+# Start pigpio daemon
+sudo systemctl start pigpiod
+
+╔══════════════════════════════════════════════════════════════╗
+║                   ENVIRONMENT VARIABLES                      ║
+╚══════════════════════════════════════════════════════════════╝
+
+export SERVO_PIN_NECK=18
+export SERVO_PIN_ARM_L=23
+export SERVO_PIN_ARM_R=24
+export SERVO_OFFSET_NECK=90
+
+export ULTRASONIC_TRIGGER_PIN=27
+export ULTRASONIC_ECHO_PIN=22
+
+export PIR_PIN=17
+export DHT_PIN=4
+export DHT_TYPE=11
+
+╔══════════════════════════════════════════════════════════════╗
+║                  USAGE IN PYTHON CODE                        ║
+╚══════════════════════════════════════════════════════════════╝
+
+from actuators.multi_servo_controller import multi_servo_controller
+
+# Get servos
+neck = multi_servo_controller.get_servo('neck')
+left = multi_servo_controller.get_servo('arm_l')
+right = multi_servo_controller.get_servo('arm_r')
+
+# Control neck (angle offset applied automatically)
+neck.set_angle(0)      # Face forward
+neck.set_angle(45)     # Turn left
+neck.set_angle(-45)    # Turn right
+
+# Control hands
+left.set_angle(90)     # Center
+right.set_angle(135)   # Up
+
+# Thread-safe usage
+lock = multi_servo_controller.get_lock('neck')
+if lock.acquire(blocking=False):
+    try:
+        neck.set_angle(45)
+    finally:
+        lock.release()
+
+╔══════════════════════════════════════════════════════════════╗
+║                    STATUS: ALL SYSTEMS GO ✓                  ║
+║  • Servo pins: Updated (18, 23, 24)                          ║
+║  • Servo tests: All passing ✓                                ║
+║  • Angle offset: Implemented ✓                               ║
+║  • Documentation: Complete ✓                                 ║
+║  • Next: Rewire ultrasonic sensor (27, 22)                   ║
+╚══════════════════════════════════════════════════════════════╝

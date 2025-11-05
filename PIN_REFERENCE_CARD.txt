@@ -1,0 +1,202 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    🤖 JARVIS QUICK PIN REFERENCE CARD                        ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          RASPBERRY PI GPIO LAYOUT                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   3.3V    [●1] [●2]  5V ← LCD VCC (Red), Ultrasonic VCC                     │
+│   SDA1    [●3] [●4]  5V ← LCD SDA (Blue), ADS1115 SDA                       │
+│   SCL1    [●5] [●6]  GND ← LCD GND (Black)                                  │
+│   GPIO4   [●7] [●8]  GPIO14 ← DHT11 DATA (Yellow)                           │
+│   GND     [●9] [10]  GPIO15 ← Ultrasonic GND                                │
+│   GPIO17  [11] [12]  GPIO18 ← PIR OUT (Yellow)                              │
+│   GPIO27  [13] [14]  GND ← PIR GND                                          │
+│   GPIO22  [15] [16]  GPIO23 ← Ultrasonic TRIG (Green)                       │
+│   3.3V    [17] [18]  GPIO24 ← Ultrasonic ECHO (with divider!)               │
+│   GPIO10  [19] [20]  GND ← ADS1115 GND                                      │
+│   GPIO9   [21] [22]  GPIO25                                                 │
+│   GPIO11  [23] [24]  GPIO8                                                  │
+│   GND     [25] [26]  GPIO7 ← DHT11 GND                                      │
+│   GPIO0   [27] [28]  GPIO1                                                  │
+│   GPIO5   [29] [30]  GND ← L298N IN1 (Green)                                │
+│   GPIO6   [31] [32]  GPIO12 ← L298N IN2 (Blue), L298N ENA (Orange)         │
+│   GPIO13  [33] [34]  GND ← L298N ENB (Yellow), L298N GND (Black)            │
+│   GPIO19  [35] [36]  GPIO16 ← Neck Servo (Orange), L298N IN4 (Gray)        │
+│   GPIO26  [37] [38]  GPIO20 ← L298N IN3 (Purple), Arm_L Servo (Orange)     │
+│   GND     [39] [40]  GPIO21 ← Servo GND (Brown), Arm_R Servo (Orange)      │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          📟 LCD 16x2 (I2C 0x27)                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  GND (Black)  →  Pin 6  (GND)                                               │
+│  VCC (Red)    →  Pin 2  (5V)                                                │
+│  SDA (Blue)   →  Pin 3  (GPIO 2)                                            │
+│  SCL (Yellow) →  Pin 5  (GPIO 3)                                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     🚗 L298N MOTOR DRIVER (6 Control Pins)                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  LEFT MOTOR:                      RIGHT MOTOR:                              │
+│   ENA (Orange) → Pin 32 (GPIO 12)  ENB (Yellow) → Pin 33 (GPIO 13)         │
+│   IN1 (Green)  → Pin 29 (GPIO 5)   IN3 (Purple) → Pin 37 (GPIO 26)         │
+│   IN2 (Blue)   → Pin 31 (GPIO 6)   IN4 (Gray)   → Pin 36 (GPIO 16)         │
+│                                                                              │
+│  GND (Black)   → Pin 34 (GND)                                               │
+│  +12V Power    → External Battery 6-12V (NOT Pi!)                           │
+│  Motor A       → OUT1, OUT2        Motor B      → OUT3, OUT4                │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      🤖 SERVOS (3x - External 5V Power!)                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  ALL VCC (Red)   → External 5V Adapter (+) [Merge 3 wires]                 │
+│  ALL GND (Brown) → External 5V Adapter (-) + Pi GND [Merge 3 wires]        │
+│                                                                              │
+│  Neck Signal (Orange)  → Pin 35 (GPIO 19)                                   │
+│  Arm_L Signal (Orange) → Pin 38 (GPIO 20)                                   │
+│  Arm_R Signal (Orange) → Pin 40 (GPIO 21)                                   │
+│                                                                              │
+│  ⚠️  MUST USE 5V 2A EXTERNAL ADAPTER - Pi 5V will CRASH system!             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     📡 HC-SR04 ULTRASONIC (with Divider!)                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  VCC (Red)    → Pin 4  (5V)                                                 │
+│  GND (Black)  → Pin 9  (GND)                                                │
+│  TRIG (Green) → Pin 16 (GPIO 23) - direct                                   │
+│  ECHO (Yellow)→ Pin 18 (GPIO 24) - via voltage divider ↓                    │
+│                                                                              │
+│  Voltage Divider (CRITICAL!):                                               │
+│    ECHO → [1kΩ] → GPIO 24                                                   │
+│                    ↓                                                         │
+│                  [2kΩ] → GND                                                │
+│  (Converts 5V ECHO to 3.3V for Pi)                                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         🏃 PIR MOTION SENSOR                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  VCC (Red)    → Pin 1  (3.3V)                                               │
+│  GND (Black)  → Pin 14 (GND)                                                │
+│  OUT (Yellow) → Pin 11 (GPIO 17)                                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       🌡️ DHT11 TEMP/HUMIDITY                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  VCC (Red)    → Pin 1  (3.3V)                                               │
+│  GND (Black)  → Pin 25 (GND)                                                │
+│  DATA (Yellow)→ Pin 7  (GPIO 4)                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    🍺 MQ-3 ALCOHOL (via ADS1115 I2C ADC)                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  MQ-3 → ADS1115:           ADS1115 → Pi:                                    │
+│    VCC → VDD                VDD (Red)    → Pin 17 (3.3V)                    │
+│    GND → GND                GND (Black)  → Pin 20 (GND)                     │
+│    A0  → A0                 SDA (Blue)   → Pin 3  (GPIO 2) *shared with LCD │
+│                             SCL (Yellow) → Pin 5  (GPIO 3) *shared with LCD │
+│                                                                              │
+│  I2C Address: 0x48 (ADS1115)                                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                          ⚡ POWER DISTRIBUTION                                ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  FROM RASPBERRY PI 5V PINS:                                                 │
+│    • LCD Display (Pin 2)           ~50mA                                    │
+│    • Ultrasonic Sensor (Pin 4)     ~30mA                                    │
+│    TOTAL: ~80mA ✅ Safe                                                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  FROM RASPBERRY PI 3.3V PINS:                                               │
+│    • PIR Sensor (Pin 1)            ~20mA                                    │
+│    • DHT11 Sensor (Pin 1)          ~15mA                                    │
+│    • ADS1115 ADC (Pin 17)          ~10mA                                    │
+│    TOTAL: ~45mA ✅ Safe                                                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  EXTERNAL POWER REQUIRED:                                                   │
+│    1. SERVOS: 5V 2A Adapter                                                 │
+│       • 3x Servos draw ~1-2A total under load                               │
+│       • Connect GND to Pi Pin 39                                            │
+│                                                                              │
+│    2. MOTORS: 6-12V Battery (2-3A)                                          │
+│       • L298N draws 1-3A depending on motors                                │
+│       • Connect GND to Pi Pin 34                                            │
+│                                                                              │
+│  ⚠️  ALL GROUNDS MUST BE CONNECTED TOGETHER!                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                          🧪 TESTING COMMANDS                                 ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+# 1. Check I2C Devices
+i2cdetect -y 1
+# Should show: 0x27 (LCD), 0x48 (ADS1115)
+
+# 2. Test Display
+python3 -c "from actuators.display import display; display.write_text('TEST OK', row=0, col=4)"
+
+# 3. Test Sensors
+cd /home/naitik/jarvis && python3 tools/sensor_self_test.py
+
+# 4. Test Servos
+python3 tools/servo_self_test.py
+
+# 5. Test Motors
+python3 -c "from tools.motor_tools import move_forward; move_forward('1')"
+
+# 6. Test Complete System
+python3 test_jarvis_display.py
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                        ⚠️  CRITICAL WARNINGS                                 ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+❌ NEVER connect servos to Pi 5V - will crash Pi
+❌ NEVER connect motors to Pi power - will damage Pi
+❌ NEVER skip voltage divider on Ultrasonic ECHO - will fry GPIO 24
+❌ NEVER forget common ground - components won't work
+✅ ALWAYS use external power for servos and motors
+✅ ALWAYS connect all GNDs together
+✅ ALWAYS test one component at a time
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                         📋 PIN CONFLICT CHECK                                ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+GPIO 2  → I2C SDA  (LCD + ADS1115 - shared OK)
+GPIO 3  → I2C SCL  (LCD + ADS1115 - shared OK)
+GPIO 4  → DHT11 DATA
+GPIO 5  → L298N IN1
+GPIO 6  → L298N IN2
+GPIO 12 → L298N ENA (PWM)
+GPIO 13 → L298N ENB (PWM)
+GPIO 16 → L298N IN4
+GPIO 17 → PIR Motion
+GPIO 19 → Neck Servo (PWM)
+GPIO 20 → Arm_L Servo (PWM)
+GPIO 21 → Arm_R Servo (PWM)
+GPIO 23 → Ultrasonic TRIG
+GPIO 24 → Ultrasonic ECHO
+GPIO 26 → L298N IN3
+
+✅ NO CONFLICTS - All pins unique except I2C (which is designed to share)
+
+═══════════════════════════════════════════════════════════════════════════════
+                    JARVIS Hardware v1.0 - Pin Reference
+                         Last Updated: Oct 31, 2025
+═══════════════════════════════════════════════════════════════════════════════
