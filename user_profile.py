@@ -4,7 +4,7 @@
 
 PROFILE_DATA = {
     "name": "Naitik Raj",
-    "preferred_name": "Sir",  # How Jarvis should address you
+    "preferred_name": "Sir",  # How Jarvis should address you (Tony Stark style)
     "dob": "2002-09-09",
     "birth_place": "Patna, Bihar, India",
     "birth_time": "Between 11 PM - 12 AM",

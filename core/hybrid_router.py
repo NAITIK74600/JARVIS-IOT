@@ -107,36 +107,15 @@ class HybridIntelligenceRouter:
     
     # Tasks that can be handled offline efficiently
     OFFLINE_PATTERNS = [
-        # Time & date queries
-        (r'\b(what|current|tell me the)\s+(time|date|day)\b', 'time'),
-        (r'\bwhat\s+(is\s+)?(today|tomorrow|yesterday)\b', 'time'),
+        # Safety-critical sensor checks
+        (r'\b(temperature|humidity|distance|motion|sensor|collision|obstacle)\b', 'sensors'),
+        (r'\bcheck\s+(sensors?|environment|safety)\b', 'sensors'),
+        (r'\b(emergency|panic)\s+stop\b', 'robot'),
         
-        # System commands
-        (r'\b(cpu|memory|ram|disk)\s+(usage|status|info)\b', 'system'),
-        (r'\bsystem\s+(info|status)\b', 'system'),
-        
-        # File operations
-        (r'\b(list|show|read|open)\s+(file|files|folder)\b', 'file_system'),
-        (r'\b(create|write|delete)\s+(file|folder)\b', 'file_system'),
-        
-        # Sensor readings
-        (r'\b(temperature|humidity|distance|motion|sensor)\b', 'sensors'),
-        (r'\bcheck\s+(sensors?|environment)\b', 'sensors'),
-        
-        # Robot control (direct commands)
+        # Direct hardware control phrases
         (r'\b(move|turn|rotate|stop)\s+(robot|forward|backward|left|right)\b', 'robot'),
         (r'\b(servo|motor)\s+(angle|position|speed)\b', 'robot'),
         (r'\bscan\s+(environment|area)\b', 'robot'),
-        
-        # Memory operations
-        (r'\b(remember|recall|save|note)\s+(this|that)\b', 'memory'),
-        
-        # Simple calculations
-        (r'\b\d+\s*[\+\-\*\/]\s*\d+', 'calculation'),
-        (r'\bcalculate\s+', 'calculation'),
-        
-        # Greetings (can be offline)
-        (r'\b(hello|hi|hey|good\s+(morning|afternoon|evening))\b', 'greeting'),
     ]
     
     # Keywords that indicate complex queries needing API

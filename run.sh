@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Activates the virtualenv (created by setup_env.sh) and runs main.py
+VENV_DIR=".venv"
+
+if [ ! -d "$VENV_DIR" ]; then
+  echo "Virtualenv not found. Run ./setup_env.sh first." >&2
+  exit 3
+fi
+
+# shellcheck source=/dev/null
+source "$VENV_DIR/bin/activate"
+
+echo "Running JARVIS (main.py) in virtualenv..."
+python main.py

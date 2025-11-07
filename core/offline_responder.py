@@ -1,6 +1,7 @@
 """Lightweight rule-based responder for offline Jarvis operation."""
 from __future__ import annotations
 
+import re
 from typing import Callable, Dict, Iterable, Optional
 
 
@@ -59,6 +60,19 @@ class OfflineResponder:
             response_text = self._call_tool("scan_environment", "")
         elif "last scan" in text:
             response_text = self._call_tool("get_last_scan", "")
+        elif "display" in text:
+            display_payload = None
+            match = re.search(r"(?:say|display|show)\s+(.+?)\s+(?:on|to|onto)\s+display", user_input, re.IGNORECASE)
+            if match:
+                display_payload = match.group(1).strip().strip('"\'')
+            elif "display" in text:
+                # Fallback: remove leading verbs like "display" or "show"
+                stripped = re.sub(r"^(?:say|display|show)\s+", "", user_input, flags=re.IGNORECASE)
+                display_payload = stripped.strip()
+            if display_payload:
+                response_text = self._call_tool("display_text", display_payload)
+            else:
+                response_text = "Display command detected but no message found to show."
         
         # Time & date
         elif "time" in text or "what time" in text or "clock" in text:
@@ -102,7 +116,6 @@ class OfflineResponder:
         # Math operations
         elif "what is" in text or "calculate" in text or "compute" in text:
             # Simple math extraction
-            import re
             math_match = re.search(r'(\d+)\s*([+\-*/])\s*(\d+)', text)
             if math_match:
                 a, op, b = int(math_match.group(1)), math_match.group(2), int(math_match.group(3))
@@ -111,8 +124,8 @@ class OfflineResponder:
 
         if not response_text:
             response_text = (
-                "I'm running in offline mode. I can help with: sensors, time/date, greetings, "
-                "system info, robot control, basic math. For complex tasks, I need API access."
+                "Safety mode active. I'm handling critical sensors and hardware locally until "
+                "cloud access returns. For conversations and creative tasks, please restore connectivity."
             )
 
         if reason:

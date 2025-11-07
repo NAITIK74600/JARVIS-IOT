@@ -91,6 +91,14 @@ def perform_scan(servo, sensor_manager, *, start_angle: Optional[int]=None, end_
     if not servo or not sensor_manager:
         return ScanResult([], {}, {"error": "missing-hardware"})
 
+    # Try to import display for real-time feedback
+    try:
+        from actuators.display import display
+        has_display = True
+    except:
+        has_display = False
+        display = None
+
     # Load config (override precedence: explicit arg > env > default)
     cfg = {
         'start_angle': start_angle if start_angle is not None else _load_env_int('SCAN_START_ANGLE', 30, 0, 180),
@@ -109,10 +117,26 @@ def perform_scan(servo, sensor_manager, *, start_angle: Optional[int]=None, end_
     samples: List[Tuple[int, float]] = []
     raw_map: Dict[int, List[float]] = {}
 
+    # Display: Show scanning start
+    if has_display:
+        display.clear()
+        display.write_text("Scanning...", row=0, col=3)
+        display.write_text(f"{cfg['start_angle']}-{cfg['end_angle']} deg", row=1, col=3)
+        time.sleep(0.5)
+
     try:
-        for angle in angles:
+        total_angles = len(angles)
+        for idx, angle in enumerate(angles):
             servo.set_angle(angle)
             time.sleep(cfg['settle'])
+            
+            # Display: Show current angle
+            if has_display:
+                display.clear()
+                display.write_text(f"Angle: {angle:3d}", row=0, col=3)
+                progress = f"{idx+1}/{total_angles}"
+                display.write_text(progress, row=1, col=5)
+            
             raw_vals: List[float] = []
             for s in range(cfg['samples_per_angle']):
                 dist = sensor_manager.get_distance()
@@ -125,15 +149,43 @@ def perform_scan(servo, sensor_manager, *, start_angle: Optional[int]=None, end_
                 # tiny delay between multi-samples to reduce crosstalk
                 if s != cfg['samples_per_angle'] - 1:
                     time.sleep(0.03)
+            
             # Filter: remove -1 (timeouts) then median; if all invalid => -1
             filtered_candidates = [v for v in raw_vals if v >= 0]
             value = _median(filtered_candidates) if filtered_candidates else -1
             raw_map[angle] = raw_vals
             samples.append((angle, value))
+            
+            # Display: Show distance at this angle
+            if has_display and value >= 0:
+                display.clear()
+                display.write_text(f"{angle}deg: {int(value)}cm", row=0, col=2)
+                display.write_text(progress, row=1, col=5)
+                time.sleep(0.3)
+                
     finally:
         mid = (cfg['start_angle'] + cfg['end_angle']) // 2
         servo.set_angle(mid)
-    return ScanResult(samples, raw_map, cfg)
+    
+    # Calculate summary for display
+    result = ScanResult(samples, raw_map, cfg)
+    summ = result.summary()
+    
+    # Display: Show scan results
+    if has_display:
+        display.clear()
+        if summ.get("status") == "ok":
+            best_angle = summ['best_angle']
+            clearance = int(summ['best_clearance_cm'])
+            display.write_text(f"Best: {best_angle}deg", row=0, col=2)
+            display.write_text(f"Clear: {clearance}cm", row=1, col=2)
+            time.sleep(2)
+        else:
+            display.write_text("Scan Failed", row=0, col=3)
+            display.write_text("No Data", row=1, col=4)
+            time.sleep(2)
+    
+    return result
 
 
 def human_readable_summary(scan: ScanResult) -> str:

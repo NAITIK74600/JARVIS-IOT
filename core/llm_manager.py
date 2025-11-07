@@ -34,7 +34,7 @@ class LLMProvider:
 class LLMManager:
     """Initialises and manages multiple Google Gemini providers with different API keys."""
 
-    DEFAULT_GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+    DEFAULT_GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
     def __init__(self) -> None:
         self._providers: List[LLMProvider] = []

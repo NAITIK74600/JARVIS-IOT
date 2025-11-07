@@ -1,16 +1,12 @@
-"""
-Controls the 16x2 I2C LCD Display for Jarvis.
+"""LCD controller with optional idle-face animation loop."""
 
-This module provides a class to interact with a standard 16x2 character LCD
-that uses an I2C backpack (like the PCF8574). It allows for displaying text,
-clearing the screen, and showing simple, predefined facial expressions.
-
-Facial expressions are created using custom characters.
-"""
+import os
+import threading
+import time
+from typing import List, Tuple
 
 from RPLCD.i2c import CharLCD
 from core.hardware_manager import hardware_manager
-import time
 
 class Display:
     _instance = None
@@ -26,6 +22,18 @@ class Display:
 
         self.simulation_mode = hardware_manager.simulation_mode
         self.lcd = None
+        self._display_lock = threading.Lock()
+        self._animation_thread: threading.Thread | None = None
+        self._animation_stop = threading.Event()
+        self._last_manual_update = time.time()
+        self._idle_delay = float(os.getenv("DISPLAY_IDLE_ANIMATION_DELAY", "15"))
+        self._animation_frames: List[Tuple[str, float]] = [
+            ("neutral", 3.0),
+            ("happy", 1.8),
+            ("neutral", 2.5),
+            ("thinking", 1.8),
+            ("listening", 1.6),
+        ]
 
         if not self.simulation_mode:
             try:
@@ -39,11 +47,27 @@ class Display:
                 print(f"Error: Could not initialize LCD display: {e}")
                 print("Display will run in simulation mode.")
                 self.simulation_mode = True
+                self.lcd = None
         
         if self.simulation_mode:
             print("LCD Display initialized (Simulation Mode).")
 
         self.initialized = True
+
+        # ------------------------------------------------------------------
+        def _handle_display_error(self, error: Exception) -> None:
+            """Log hardware errors and fall back to simulation mode."""
+            if self.simulation_mode:
+                return
+            print(f"[Display] Hardware error: {error}. Switching to simulation mode.")
+            self.simulation_mode = True
+            if self.lcd:
+                try:
+                    self.lcd.close(clear=False)
+                except Exception:
+                    pass
+                finally:
+                    self.lcd = None
 
     def _define_custom_chars(self):
         """Defines custom characters for facial expressions."""
@@ -156,104 +180,159 @@ class Display:
         Writes text to the display at a specific position.
         Automatically handles line wrapping for long text.
         """
-        if self.simulation_mode:
-            print(f"[LCD SIM] Write (row={row}, col={col}): '{text}'")
-            return
-        if not self.lcd: return
+        with self._display_lock:
+            if self.simulation_mode or not self.lcd:
+                print(f"[LCD SIM] Write (row={row}, col={col}): '{text}'")
+                self._last_manual_update = time.time()
+                return
 
-        self.lcd.cursor_pos = (row, col)
-        # Simple word wrapping
-        words = text.split(' ')
-        current_col = col
-        current_row = row
-        for word in words:
-            if len(word) > 16: # Word is too long for one line
-                if current_col > 0:
-                    current_row += 1
-                    current_col = 0
-                if current_row > 1: break
-                self.lcd.cursor_pos = (current_row, current_col)
-                self.lcd.write_string(word[:16-current_col])
-                current_row += 1
-                if current_row > 1: break
-                self.lcd.cursor_pos = (current_row, 0)
-                self.lcd.write_string(word[16-current_col:])
-                current_col = len(word[16-current_col:])
-            elif current_col + len(word) > 15: # Word wraps to next line
-                current_row += 1
-                current_col = 0
-                if current_row > 1: break
-                self.lcd.cursor_pos = (current_row, current_col)
-                self.lcd.write_string(word)
-                current_col += len(word) + 1
-            else: # Word fits on current line
-                self.lcd.cursor_pos = (current_row, current_col)
-                self.lcd.write_string(word)
-                current_col += len(word) + 1
+            try:
+                self.lcd.cursor_pos = (row, col)
+                # Simple word wrapping
+                words = text.split(' ')
+                current_col = col
+                current_row = row
+                for word in words:
+                    if len(word) > 16:  # Word is too long for one line
+                        if current_col > 0:
+                            current_row += 1
+                            current_col = 0
+                        if current_row > 1:
+                            break
+                        self.lcd.cursor_pos = (current_row, current_col)
+                        self.lcd.write_string(word[:16-current_col])
+                        current_row += 1
+                        if current_row > 1:
+                            break
+                        self.lcd.cursor_pos = (current_row, 0)
+                        self.lcd.write_string(word[16-current_col:])
+                        current_col = len(word[16-current_col:])
+                    elif current_col + len(word) > 15:  # Word wraps to next line
+                        current_row += 1
+                        current_col = 0
+                        if current_row > 1:
+                            break
+                        self.lcd.cursor_pos = (current_row, current_col)
+                        self.lcd.write_string(word)
+                        current_col += len(word) + 1
+                    else:  # Word fits on current line
+                        self.lcd.cursor_pos = (current_row, current_col)
+                        self.lcd.write_string(word)
+                        current_col += len(word) + 1
+            except Exception as exc:
+                self._handle_display_error(exc)
+            finally:
+                self._last_manual_update = time.time()
 
 
     def clear(self):
         """Clears the display."""
-        if self.simulation_mode:
-            print("[LCD SIM] Clear display")
-            return
-        if self.lcd:
-            self.lcd.clear()
+        with self._display_lock:
+            if self.simulation_mode or not self.lcd:
+                print("[LCD SIM] Clear display")
+                self._last_manual_update = time.time()
+                return
+            try:
+                self.lcd.clear()
+            except Exception as exc:
+                self._handle_display_error(exc)
+            finally:
+                self._last_manual_update = time.time()
 
     def show_face(self, face_name: str):
         """
         Displays a predefined facial expression.
         Valid names: 'neutral', 'happy', 'sad', 'thinking', 'listening'
         """
-        if self.simulation_mode:
-            print(f"[LCD SIM] Show face: {face_name}")
-            return
-        if not self.lcd: return
+        self._render_face(face_name, from_animation=False)
 
-        self.clear()
-        
-        # Faces are drawn on the top row, centered.
-        # Using custom characters for eyes and mouth.
-        #   \x00 = eye_left, \x01 = eye_right
-        #   \x02 = eye_narrow_left, \x03 = eye_narrow_right
-        #   \x04 = smile_left, \x05 = smile_right
-        #   \x06 = frown_left, \x07 = frown_right
-        
-        if face_name == 'happy':
-            # Wide eyes, smiling mouth
-            self.lcd.cursor_pos = (0, 5)
-            self.lcd.write_string(f"\x00\x01  \x00\x01")
-            self.lcd.cursor_pos = (1, 6)
-            self.lcd.write_string(f"\x04\x05")
-        elif face_name == 'sad':
-            # Narrow eyes, frowning mouth
-            self.lcd.cursor_pos = (0, 5)
-            self.lcd.write_string(f"\x02\x03  \x02\x03")
-            self.lcd.cursor_pos = (1, 6)
-            self.lcd.write_string(f"\x06\x07")
-        elif face_name == 'thinking':
-            # One wide eye, one narrow eye, flat mouth
-            self.lcd.cursor_pos = (0, 5)
-            self.lcd.write_string(f"\x00\x01  \x02\x03")
-            self.lcd.cursor_pos = (1, 6)
-            self.lcd.write_string("--")
-        elif face_name == 'listening':
-            # Wide eyes, open mouth (circle)
-            self.lcd.cursor_pos = (0, 5)
-            self.lcd.write_string(f"\x00\x01  \x00\x01")
-            self.lcd.cursor_pos = (1, 7)
-            self.lcd.write_string("o")
-        else: # neutral
-            # Wide eyes, flat mouth
-            self.lcd.cursor_pos = (0, 5)
-            self.lcd.write_string(f"\x00\x01  \x00\x01")
-            self.lcd.cursor_pos = (1, 6)
-            self.lcd.write_string("--")
+    def _render_face(self, face_name: str, *, from_animation: bool) -> None:
+        with self._display_lock:
+            if self.simulation_mode or not self.lcd:
+                print(f"[LCD SIM] Show face: {face_name}")
+                if not from_animation:
+                    self._last_manual_update = time.time()
+                return
+
+            try:
+                self.lcd.clear()
+
+                if face_name == 'happy':
+                    self.lcd.cursor_pos = (0, 5)
+                    self.lcd.write_string(f"\x00\x01  \x00\x01")
+                    self.lcd.cursor_pos = (1, 6)
+                    self.lcd.write_string(f"\x04\x05")
+                elif face_name == 'sad':
+                    self.lcd.cursor_pos = (0, 5)
+                    self.lcd.write_string(f"\x02\x03  \x02\x03")
+                    self.lcd.cursor_pos = (1, 6)
+                    self.lcd.write_string(f"\x06\x07")
+                elif face_name == 'thinking':
+                    self.lcd.cursor_pos = (0, 5)
+                    self.lcd.write_string(f"\x00\x01  \x02\x03")
+                    self.lcd.cursor_pos = (1, 6)
+                    self.lcd.write_string("--")
+                elif face_name == 'listening':
+                    self.lcd.cursor_pos = (0, 5)
+                    self.lcd.write_string(f"\x00\x01  \x00\x01")
+                    self.lcd.cursor_pos = (1, 7)
+                    self.lcd.write_string("o")
+                else:  # neutral
+                    self.lcd.cursor_pos = (0, 5)
+                    self.lcd.write_string(f"\x00\x01  \x00\x01")
+                    self.lcd.cursor_pos = (1, 6)
+                    self.lcd.write_string("--")
+            except Exception as exc:
+                self._handle_display_error(exc)
+            finally:
+                if not from_animation:
+                    self._last_manual_update = time.time()
+
+    def start_idle_animation(self) -> None:
+        """Start looping through faces when the display has been idle."""
+        if self.simulation_mode:
+            return
+        if self._animation_thread and self._animation_thread.is_alive():
+            return
+        self._animation_stop.clear()
+        self._animation_thread = threading.Thread(target=self._animation_loop, daemon=True)
+        self._animation_thread.start()
+
+    def stop_idle_animation(self) -> None:
+        """Stop the idle animation loop if running."""
+        if not self._animation_thread:
+            return
+        self._animation_stop.set()
+        self._animation_thread.join(timeout=1.0)
+        self._animation_thread = None
+
+    def _animation_loop(self) -> None:
+        while not self._animation_stop.is_set():
+            idle_for = time.time() - self._last_manual_update
+            if idle_for < self._idle_delay:
+                remaining = self._idle_delay - idle_for
+                self._animation_stop.wait(remaining)
+                continue
+
+            for face, duration in self._animation_frames:
+                if self._animation_stop.is_set():
+                    break
+                if time.time() - self._last_manual_update < self._idle_delay:
+                    break
+                try:
+                    self._render_face(face, from_animation=True)
+                except Exception as exc:
+                    self._handle_display_error(exc)
+                    break
+                if self._animation_stop.wait(duration):
+                    break
 
     def cleanup(self):
+        self.stop_idle_animation()
         if not self.simulation_mode and self.lcd:
-            self.lcd.clear()
-            self.lcd.close(clear=True)
+            with self._display_lock:
+                self.lcd.clear()
+                self.lcd.close(clear=True)
             print("LCD Display cleaned up.")
 
 # Singleton instance

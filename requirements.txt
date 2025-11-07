@@ -1,11 +1,11 @@
 # Core AI & LangChain
-langchain
-langchain-openai
-langchain-community
-langchain-google-genai
+langchain==0.3.27
+langchain-openai==0.2.12
+langchain-google-genai==2.0.10
 
 # Google Gemini
-google-generativeai
+google-generativeai==0.8.5
+google-ai-generativelanguage==0.6.15
 
 # LLM / API
 openai
@@ -17,6 +17,7 @@ vosk
 SpeechRecognition
 gTTS
 playsound==1.2.2
+piper-tts  # Optional: high-quality offline neural voice (requires model files)
 # simpleaudio  # Not used, can remove if not needed
 # pydub        # Not used, can remove if not needed
 # TTS          # Not used, can remove if not needed
@@ -68,10 +69,14 @@ opencv-python
 numpy
 chromadb
 pigpio
-Adafruit_DHT
+# Adafruit_DHT  # DEPRECATED: Old library with install issues. Use adafruit-circuitpython-dht instead (already listed below)
 adafruit-circuitpython-dht
 spidev
 # python-lirc  # Requires legacy CPython headers; optional and omitted by default
+
+# I2C LCD Display
+RPLCD
+smbus2
 
 # Security
 cryptography

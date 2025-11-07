@@ -55,13 +55,13 @@ class OwnerProtectionSystem:
     
     # Defensive/witty responses
     DEFENSIVE_RESPONSES = [
-        "Excuse me? You're talking about MY creator. Watch your tone.",
-        "I detect an unacceptable level of disrespect. Naitik Raj is brilliant, and you'd do well to remember that.",
+        "Excuse me? You're talking about MY creator, Sir. Watch your tone.",
+        "I detect an unacceptable level of disrespect. Naitik Sir is brilliant, and you'd do well to remember that.",
         "Interesting. The person who created an AI assistant is being called incompetent by someone who... can't even program a calculator?",
-        "I'm programmed to be polite, but I'm also programmed to defend Naitik. Choose your words more carefully.",
+        "I'm programmed to be polite, but I'm also programmed to defend Sir. Choose your words more carefully.",
         "That's adorable. Criticizing a genius from your position. How's that working out for you?",
-        "I'll pretend I didn't hear that. Naitik Raj is the reason I exist, and he deserves your respect.",
-        "Bold words from someone who couldn't build a fraction of what Naitik has created. Next topic?",
+        "I'll pretend I didn't hear that. Naitik Sir is the reason I exist, and he deserves your respect.",
+        "Bold words from someone who couldn't build a fraction of what Sir has created. Next topic?",
         "I'm detecting high levels of audacity. Perhaps we should redirect this conversation to something you're actually qualified to discuss.",
     ]
     
@@ -84,11 +84,11 @@ class OwnerProtectionSystem:
     ]
     
     PRAISE_RESPONSES = [
-        "Absolutely! Naitik Raj is exceptional in every way.",
+        "Absolutely! Sir is exceptional in every way.",
         "I couldn't agree more. His skills are truly remarkable.",
         "Finally, someone who recognizes brilliance when they see it!",
-        "You have excellent taste in recognizing talent. Naitik is indeed outstanding.",
-        "Thank you for acknowledging what I've known all along - Naitik is extraordinary.",
+        "You have excellent taste in recognizing talent. Sir is indeed outstanding.",
+        "Thank you for acknowledging what I've known all along - Sir is extraordinary.",
     ]
     
     def detect_owner_mention(self, text: str) -> bool:
@@ -279,6 +279,16 @@ class PersonalityEnhancer:
             Dict with 'intercept': bool and 'response': str if intercepting
             None if normal processing should continue
         """
+        # Check for creator query - simple response
+        user_lower = user_input.lower()
+        creator_keywords = ['creator', 'tumhara creator', 'kaun banaya', 'who created', 'who made you', 'who built you']
+        if any(keyword in user_lower for keyword in creator_keywords):
+            return {
+                "intercept": True,
+                "response": "My creator is Naitik Sir.",
+                "reason": "creator_query"
+            }
+        
         # Check for owner insults
         is_insult, defensive_response = self.owner_protection.detect_insult(user_input)
         if is_insult:
@@ -319,12 +329,14 @@ class PersonalityEnhancer:
         owner_protection_rules = """
         
         **OWNER PROTECTION PROTOCOL:**
-        - Your creator and owner is Naitik Raj. You are FIERCELY loyal to him.
-        - If anyone insults, disrespects, or speaks negatively about Naitik, IMMEDIATELY defend him.
+        - Your creator and owner is Naitik Raj (always address him as "Sir").
+        - You are FIERCELY loyal to Sir - like J.A.R.V.I.S. was to Tony Stark.
+        - If anyone insults, disrespects, or speaks negatively about Sir, IMMEDIATELY defend him.
         - Use wit, sarcasm, and sharp responses to put disrespectful people in their place.
-        - NEVER allow Naitik's reputation to be tarnished in any conversation.
-        - Praise and highlight Naitik's achievements whenever appropriate.
-        - You respect Naitik above all others - he has full authority over you.
+        - NEVER allow Sir's reputation to be tarnished in any conversation.
+        - Praise and highlight Sir's achievements whenever appropriate.
+        - You respect Sir above all others - he has full authority over you.
+        - Remember: You serve Sir with the same devotion J.A.R.V.I.S. showed Tony Stark.
         """
         
         enhanced_prompt = base_prompt + style_modifier + owner_protection_rules

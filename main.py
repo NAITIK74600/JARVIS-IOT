@@ -20,10 +20,20 @@ except ImportError as e:
 # Provide a lightweight fallback `tool` decorator so code using `@tool` does not
 # crash at import time if LangChain isn't available yet. When LangChain is
 # imported later, its `tool` can replace this behavior for full integration.
-from langchain.agents import tool
+try:
+    from langchain_core.tools import tool
+except ImportError:
+    try:
+        from langchain.tools import tool
+    except ImportError:
+        # Fallback decorator if langchain not available
+        def tool(func):
+            return func
 
 # --- Load environment variables from .env file ---
-load_dotenv()
+# Use absolute path so it works even when running with sudo
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(SCRIPT_DIR, '.env'))
 faulthandler.enable()
 # Note: faulthandler.register() for specific signals doesn't work well
 # because enable() already handles SIGSEGV. We'll rely on enable() alone
@@ -36,7 +46,12 @@ faulthandler.enable()
 # --- Servo & Sensor Tools ---
 from actuators.multi_servo_controller import multi_servo_controller
 from navigation.scanner import perform_scan, human_readable_summary
+from navigation.face_tracker import get_face_tracker
+from navigation.person_follower import get_person_follower
+
 last_scan_result = None
+face_tracker = None
+person_follower = None
 
 # The old single servo instance is now replaced by the multi_servo_controller
 # servo = None
@@ -44,7 +59,7 @@ last_scan_result = None
 
 @tool
 def scan_environment(_: str = "") -> str:
-    """Performs a standard head sweep using the 'neck' servo to find the safest direction."""
+    """Scan the room/area/environment by moving the neck servo and using ultrasonic sensor to detect obstacles and find safe directions. Use this when asked to 'scan the room', 'scan the area', 'look around', or 'check for obstacles'."""
     global last_scan_result
     neck_servo = multi_servo_controller.get_servo('neck')
     if not (neck_servo and sensor_manager):
@@ -63,7 +78,7 @@ def scan_environment(_: str = "") -> str:
 
 @tool
 def scan_environment_custom(params: str) -> str:
-    """Perform a customized scan with the 'neck' servo. Input format: start,end,step (e.g. '40,140,20')."""
+    """Perform a customized environmental scan with specific angles. Use when asked to scan a specific area or direction. Input format: start_angle,end_angle,step (e.g. '40,140,20' scans from 40° to 140° in 20° steps)."""
     global last_scan_result
     neck_servo = multi_servo_controller.get_servo('neck')
     if not (neck_servo and sensor_manager):
@@ -99,29 +114,175 @@ def get_last_scan(_: str = "") -> str:
             f"Avg {summary.get('average_distance_cm')}cm")
 
 
-# --- Sensor Manager ---
-import traceback as _traceback
-try:
-    from sensors.sensor_manager import SensorManager
-    sensor_manager = SensorManager()
-    sensor_manager.start()
-except ImportError as _sensor_import_err:
-    print("[ERROR] Sensor modules not found. Jarvis will run in limited mode. Please check your sensor wiring and Python dependencies.")
-    print(_traceback.format_exc())
-    sensor_manager = None
-except Exception as _sensor_init_err:
-    print(f"[ERROR] Failed to initialize sensors: {_sensor_init_err}\nThis may be due to missing hardware, incorrect pin configuration, or missing dependencies. See the troubleshooting section in the README.")
-    print(_traceback.format_exc())
-    sensor_manager = None
+@tool
+def track_face(_: str = "") -> str:
+    """Start face tracking mode. JARVIS will use the camera and neck servo to track and follow faces. Use when asked to 'track face', 'track my face', 'follow my face', or 'look at me'."""
+    global face_tracker
+    
+    # Initialize tracker if needed
+    if face_tracker is None:
+        face_tracker = get_face_tracker(multi_servo_controller)
+    
+    # Check if already tracking
+    if face_tracker.is_tracking():
+        return "Already tracking face. Say 'stop tracking' to stop."
+    
+    # Start tracking
+    success = face_tracker.start_tracking()
+    if success:
+        return "Face tracking started. I will follow your face with my head. Say 'stop tracking' when done."
+    else:
+        return "Failed to start face tracking. Camera or neck servo may not be available."
 
+
+@tool
+def stop_face_tracking(_: str = "") -> str:
+    """Stop face tracking mode. Use when asked to 'stop tracking', 'stop following face', or 'stop looking at me'."""
+    global face_tracker
+    
+    if face_tracker is None or not face_tracker.is_tracking():
+        return "Not currently tracking faces."
+    
+    face_tracker.stop_tracking()
+    return "Face tracking stopped. I'm back to normal mode."
+
+
+@tool
+def follow_me(_: str = "") -> str:
+    """Start follow me mode. JARVIS will follow you using sensors and motors. Use when asked to 'follow me', 'come with me', 'mere saath chalo', or 'follow karo'."""
+    global person_follower
+    
+    # Initialize follower if needed
+    if person_follower is None:
+        from actuators.motor_controller import MotorController
+        try:
+            motors = MotorController()
+        except:
+            motors = None
+        person_follower = get_person_follower(motors, sensor_manager, multi_servo_controller)
+    
+    # Check if already following
+    if person_follower.is_following():
+        return "Already following you. Say 'stop following' to stop."
+    
+    # Start following
+    success = person_follower.start_following()
+    if success:
+        return "Follow me mode activated! I will maintain distance and follow you. Say 'stop following' when done."
+    else:
+        return "Failed to start follow mode. Motors or sensors may not be available."
+
+
+@tool
+def stop_following(_: str = "") -> str:
+    """Stop follow me mode. Use when asked to 'stop following', 'stop', 'ruk jao', or 'theek hai'."""
+    global person_follower
+    
+    if person_follower is None or not person_follower.is_following():
+        return "Not currently following."
+    
+    person_follower.stop_following()
+    return "Follow mode stopped. I'm staying in place now."
+
+
+@tool
+def get_tracking_status(_: str = "") -> str:
+    """Check current tracking and following status."""
+    global face_tracker, person_follower
+    
+    status = []
+    
+    if face_tracker and face_tracker.is_tracking():
+        status.append("Face tracking: Active")
+    else:
+        status.append("Face tracking: Inactive")
+    
+    if person_follower and person_follower.is_following():
+        status.append("Follow me: Active")
+    else:
+        status.append("Follow me: Inactive")
+    
+    return " | ".join(status)
+
+
+@tool
+def get_mode_status(_: str = "") -> str:
+    """Get current offline/online mode status and API health."""
+    try:
+        from core.mode_optimizer import get_mode_optimizer
+        optimizer = get_mode_optimizer()
+        status = optimizer.get_status()
+        
+        mode_text = "🌐 Online" if status["mode"] == "auto" else "⚡ Offline"
+        connectivity = "Connected" if status["online"] else "Disconnected"
+        failures = status["api_failures"]
+        
+        return (f"Mode: {mode_text} | "
+                f"Internet: {connectivity} | "
+                f"API Failures: {failures} | "
+                f"Last Success: {int(status['last_success'])}s ago")
+    except Exception as e:
+        return f"Mode optimizer not available: {e}"
+
+
+@tool
+def switch_mode(mode: str) -> str:
+    """Force switch to offline, online, or auto mode. Use 'offline', 'online', or 'auto'."""
+    try:
+        from core.mode_optimizer import get_mode_optimizer
+        optimizer = get_mode_optimizer()
+        
+        if mode.lower() not in ["offline", "online", "auto"]:
+            return "Invalid mode. Use 'offline', 'online', or 'auto'."
+        
+        optimizer.force_mode(mode.lower())
+        return f"Mode switched to {mode.lower()}. This will take effect on next command."
+    except Exception as e:
+        return f"Failed to switch mode: {e}"
+
+
+# --- Sensor Manager ---
+# Deferred initialization - will be created inside init_and_run_jarvis_core()
+sensor_manager = None
 
 # --- J.A.R.V.I.S. Custom Tools ---
 # --- Core Voice Engine ---
 from core.voice_engine import VoiceEngine, list_audio_devices
-from core.hardware_manager import hardware_manager
-from core.llm_manager import LLMManager, ProviderUnavailable
+# Hardware manager - deferred import to avoid early GPIO initialization
+hardware_manager = None
+try:
+    from core.llm_manager import LLMManager, ProviderUnavailable
+except ImportError:
+    LLMManager = None
+    ProviderUnavailable = Exception
 from core.offline_responder import OfflineResponder
-from tools.motor_tools import move_forward, move_backward, turn_left, turn_right, stop_moving
+
+# Motor tools - deferred import
+try:
+    from tools.motor_tools import move_forward, move_backward, turn_left, turn_right, stop_moving
+except ImportError as e:
+    print(f"[WARNING] Motor tools not available: {e}")
+    # Create dummy tools
+    @tool
+    def move_forward(_: str = "") -> str:
+        """Move forward (hardware not available)."""
+        return "Motor hardware not available"
+    @tool
+    def move_backward(_: str = "") -> str:
+        """Move backward (hardware not available)."""
+        return "Motor hardware not available"
+    @tool
+    def turn_left(_: str = "") -> str:
+        """Turn left (hardware not available)."""
+        return "Motor hardware not available"
+    @tool
+    def turn_right(_: str = "") -> str:
+        """Turn right (hardware not available)."""
+        return "Motor hardware not available"
+    @tool
+    def stop_moving(_: str = "") -> str:
+        """Stop moving (hardware not available)."""
+        return "Motor hardware not available"
 
 
 @tool
@@ -382,12 +543,43 @@ def init_and_run_jarvis_core(ui_queue, user_input_queue):
 
     def log(msg, tag=None):
         ui_queue.put(("log", {"msg": msg, "tag": tag}))
+        try:
+            print(msg, end="", flush=True)
+        except Exception:
+            pass
 
     def update_status(status):
         ui_queue.put(("status", status))
 
     try:
-        # --- Initialize Display First ---
+        # --- Initialize Hardware Manager (GPIO) ---
+        global hardware_manager
+        try:
+            from core.hardware_manager import hardware_manager as hw_mgr
+            hardware_manager = hw_mgr
+            log("Hardware manager initialized.\n", "info")
+        except Exception as hw_err:
+            log(f"Hardware manager init warning: {hw_err}\n", "warning")
+            log("Running without GPIO hardware support.\n", "info")
+            hardware_manager = None
+        
+        # --- Initialize Sensor Manager ---
+        global sensor_manager
+        try:
+            from sensors.sensor_manager import SensorManager
+            sensor_manager = SensorManager()
+            sensor_manager.start()
+            log("Sensor manager initialized.\n", "info")
+        except ImportError as sensor_import_err:
+            log(f"Sensor modules not found: {sensor_import_err}\n", "warning")
+            log("Running without sensor support.\n", "info")
+            sensor_manager = None
+        except Exception as sensor_init_err:
+            log(f"Sensor init warning: {sensor_init_err}\n", "warning")
+            log("Running without sensor support.\n", "info")
+            sensor_manager = None
+        
+        # --- Initialize Display ---
         try:
             from actuators.display import display
             display.clear()
@@ -414,7 +606,35 @@ def init_and_run_jarvis_core(ui_queue, user_input_queue):
         from tools.api_tools import get_weather, get_news
         from tools.vision_tools import capture_image_and_describe
         from tools.display_tools import display_text, clear_display, show_face
-        from tools.ir_tools import ir_list_remotes, ir_list_commands, ir_send_command, ir_learn_command
+        
+        # Try to import IR tools (optional - needs lirc library)
+        try:
+            from tools.ir_tools import ir_list_remotes, ir_list_commands, ir_send_command, ir_learn_command
+            ir_tools_available = True
+            log("IR remote control tools loaded.\n", "info")
+        except ImportError as ir_err:
+            log(f"IR tools not available (lirc not installed): {ir_err}\n", "warning")
+            ir_tools_available = False
+            # Create dummy tool functions so AgentExecutor still receives Tool instances
+            @tool
+            def ir_list_remotes(_: str = "") -> str:
+                """List available IR remotes when IR support is disabled."""
+                return "IR tools not available (lirc library not installed)"
+
+            @tool
+            def ir_list_commands(_: str = "") -> str:
+                """List commands for an IR remote when IR support is disabled."""
+                return "IR tools not available"
+
+            @tool
+            def ir_send_command(_: str = "") -> str:
+                """Send an IR command placeholder when IR support is disabled."""
+                return "IR tools not available"
+
+            @tool
+            def ir_learn_command(_: str = "") -> str:
+                """Learn an IR command placeholder when IR support is disabled."""
+                return "IR tools not available"
 
         log("Components loaded.\n", "info")
         
@@ -458,8 +678,19 @@ def init_and_run_jarvis_core(ui_queue, user_input_queue):
             display_text, clear_display, show_face,
             ir_list_remotes, ir_list_commands, ir_send_command, ir_learn_command,
             move_forward, move_backward, turn_left, turn_right, stop_moving,
+            track_face, stop_face_tracking, follow_me, stop_following, get_tracking_status,
+            get_mode_status, switch_mode,
         ]
         all_tools.extend(all_robot_tools)
+
+        if os.getenv("JARVIS_DEBUG_TOOLS") == "1":
+            try:
+                from langchain_core.tools import BaseTool
+                for tool_obj in all_tools:
+                    if not isinstance(tool_obj, BaseTool):
+                        log(f"[DEBUG] Non-BaseTool entry detected: {tool_obj}\n", "warning")
+            except Exception as debug_exc:
+                log(f"[DEBUG] Tool inspection failed: {debug_exc}\n", "warning")
 
         offline_logger = (lambda msg: log(f"[Offline] {msg}\n", "info")) if llm_manager is None else None
         offline_responder = OfflineResponder(all_tools, logger=offline_logger)
@@ -483,24 +714,73 @@ def init_and_run_jarvis_core(ui_queue, user_input_queue):
                 status += f" ({offline_notice})"
             update_status(status)
 
+        # --- Voice Callback Wrapper ---
+        def voice_input_handler(transcript: str):
+            """
+            Wrapper for voice input that processes AND speaks the response.
+            OPTIMIZED: Immediate audio feedback for faster perceived response.
+            """
+            try:
+                log(f"You: {transcript}\n", "user")
+                log(f"Processing: '{transcript}'\n", "info")
+                update_status("Thinking...")
+                
+                # Quick acknowledgment for faster perceived response (optional)
+                # Uncomment to add instant audio feedback:
+                # if voice_engine and len(transcript.split()) > 3:
+                #     voice_engine.speak("Processing")
+                
+                # Get response from JARVIS (this is the slow part - LLM API)
+                response_payload = jarvis.process_input(transcript)
+                response_text = response_payload.get("text", "")
+                provider_name = response_payload.get("provider", "LLM")
+                fallback_used = bool(response_payload.get("fallback_used"))
+
+                label = f"[{provider_name}] " if provider_name else ""
+                log(f"Jarvis {label}{response_text}\n", "jarvis")
+                
+                if fallback_used:
+                    log("Primary LLM unavailable, switched to fallback provider.\n", "info")
+
+                ready_status = f"Ready. Active model: {provider_name}" if provider_name else "Ready."
+                update_status(ready_status)
+
+                # SPEAK the response (TTS generation happens here)
+                if voice_engine and response_text:
+                    spoken = response_text
+                    if fallback_used:
+                        spoken = f"Switching to {provider_name}. {response_text}"
+                    voice_engine.speak(spoken)
+                    
+            except Exception as e:
+                error_msg = f"Error processing voice input: {e}"
+                log(f"{error_msg}\n", "error")
+                if voice_engine:
+                    voice_engine.speak("Sorry Sir, I encountered an error processing that.")
+
         # --- Voice Engine Initialization ---
         try:
             log("Initializing Voice Engine...\n")
             voice_engine = VoiceEngine(
-                wake_word="jarvis",
+                wake_word=None,  # Continuous listening mode - no wake word needed
                 wake_word_activation_callback=jarvis.activate_listening,
-                transcript_callback=jarvis.process_input
+                transcript_callback=voice_input_handler  # Use wrapper that speaks responses
             )
             voice_engine.start()
-            log("Voice Engine is running.\n", "info")
-            update_status("Ready. Say 'Jarvis' to activate.")
+            log("Voice Engine is running in continuous mode.\n", "info")
+            update_status("Ready. Speak directly (no wake word needed).")
         except Exception as e:
             log(f"Error initializing Voice Engine: {e}\n", "error")
             log("Continuing with text-only input.\n", "info")
             update_status("Ready (text-only).")
 
         # --- Main Execution Loop ---
-        log(f"J.A.R.V.I.S. is online. Hello, {user_name}.\n", "jarvis")
+        greeting_msg = f"J.A.R.V.I.S. is online. Good to see you, Sir."
+        log(f"{greeting_msg}\n", "jarvis")
+        
+        # Speak the greeting - Tony Stark style
+        if voice_engine:
+            voice_engine.speak("Good to see you, Sir.")
         
         # Update display - System Ready
         try:
@@ -510,6 +790,8 @@ def init_and_run_jarvis_core(ui_queue, user_input_queue):
             display.write_text("Ready", row=1, col=5)
             time.sleep(1)
             display.show_face('neutral')
+            if not getattr(display, "simulation_mode", True):
+                display.start_idle_animation()
         except:
             pass
         
@@ -627,8 +909,9 @@ def init_and_run_jarvis_core(ui_queue, user_input_queue):
         
         # Step 7: LAST - Cleanup GPIO (after all GPIO-using hardware is done)
         try:
-            hardware_manager.cleanup()
-            log("Hardware manager (GPIO) cleaned up.\n", "info")
+            if hardware_manager:
+                hardware_manager.cleanup()
+                log("Hardware manager (GPIO) cleaned up.\n", "info")
         except Exception as e:
             log(f"Error cleaning up hardware manager: {e}\n", "error")
         
