@@ -8,7 +8,7 @@ pkill -f "python.*main.py" 2>/dev/null
 sleep 1
 
 # Start Jarvis
-cd /home/naitik/jarvis
-./jarvis-env/bin/python main.py
+cd "$(dirname "$0")"
+./start_jarvis.sh
 
 echo "✅ Jarvis started!"
