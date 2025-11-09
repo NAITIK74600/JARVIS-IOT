@@ -52,12 +52,18 @@ class OfflineResponder:
         response_text: Optional[str] = None
 
         # Environment & sensors
-        if any(keyword in text for keyword in ("temperature", "humidity", "weather")):
+        if any(keyword in text for keyword in ("temperature", "humidity", "weather", "temp")):
             response_text = self._call_tool("get_environment_readings", "")
-        elif any(keyword in text for keyword in ("alcohol", "alchol", "mq3", "mq-3", "ethanol", "drinking")):
+        elif any(keyword in text for keyword in ("alcohol", "alchol", "mq3", "mq-3", "ethanol", "drinking", "drink detection")):
             # Alcohol detection (catch common misspellings too)
             response_text = self._call_tool("check_alcohol", "")
-        elif "all sensor" in text or "sensor reading" in text or "sensor status" in text:
+        elif "distance" in text or "ultrasonic" in text or "how far" in text:
+            # Distance measurement
+            response_text = self._call_tool("check_distance", "")
+        elif "motion" in text or "movement" in text or "pir" in text:
+            # Motion detection
+            response_text = self._call_tool("check_pir_motion", "")
+        elif "all sensor" in text or "sensor reading" in text or "sensor status" in text or "check sensors" in text:
             response_text = self._call_tool("get_all_sensor_readings", "")
         elif "scan" in text and "last" not in text:
             response_text = self._call_tool("scan_environment", "")
