@@ -39,9 +39,10 @@ class ModeOptimizer:
         ]
 
         # Safety triggers where offline reflexes should engage
+        # Note: Keep this list SHORT and specific to actual emergencies
         self.safety_keywords = [
             'collision', 'accident', 'hit the wall', 'hit wall', 'bump',
-            'impact', 'crash', 'emergency stop', 'danger', 'protect', 'safety'
+            'impact', 'crash', 'emergency stop', 'danger'
         ]
 
         # Online keywords (need cloud AI)

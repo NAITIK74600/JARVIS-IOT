@@ -42,19 +42,21 @@ class SensorManager:
             self.ultrasonic_sensor = None
             self.sensor_status['ultrasonic'] = False
         
-        # MQ-3 sensor (DISABLED - requires ADC/MCP3008)
-        # Set MQ3_ENABLED=true in environment to enable
+        # MQ-3 sensor (can run in digital D0 mode)
+        # Enable with MQ3_ENABLED=true and optionally set MQ3_DIGITAL_PIN (BCM)
         if os.getenv('MQ3_ENABLED', 'false').lower() in ('true', '1', 'yes'):
             try:
-                self.mq3_sensor = MQ3(channel=int(os.getenv('MQ3_ADC_CHANNEL', '0')))
+                digital_pin = int(os.getenv('MQ3_DIGITAL_PIN', '26'))
+                # MQ3 class was updated to accept digital_pin for D0 reading
+                self.mq3_sensor = MQ3(digital_pin=digital_pin)
                 self.sensor_status['mq3'] = True
-                print("✓ MQ-3 sensor initialized")
+                print(f"✓ MQ-3 sensor initialized (digital D0 on GPIO {digital_pin})")
             except Exception as e:
                 print(f"✗ MQ-3 sensor failed: {e}")
                 self.mq3_sensor = None
                 self.sensor_status['mq3'] = False
         else:
-            print("⊗ MQ-3 sensor disabled (requires ADC - set MQ3_ENABLED=true to enable)")
+            print("⊗ MQ-3 sensor disabled (set MQ3_ENABLED=true to enable digital D0 mode)")
             self.mq3_sensor = None
             self.sensor_status['mq3'] = False
         
@@ -147,12 +149,13 @@ class SensorManager:
 
     def get_alcohol_level(self):
         """
-        Returns the alcohol level from the MQ-3 sensor.
+        Returns True/False whether alcohol is detected from the MQ-3 digital D0 output.
         """
         if not self.mq3_sensor:
             return None
         try:
-            return self.mq3_sensor.read_alcohol_level()
+            # New MQ3 API: read_alcohol_detected() -> bool
+            return self.mq3_sensor.read_alcohol_detected()
         except Exception as e:
             print(f"Error reading MQ-3: {e}")
             return None
@@ -187,7 +190,7 @@ class SensorManager:
         """
         readings = {
             "distance_cm": self.get_distance(),
-            "alcohol_level_mg_l": self.get_alcohol_level(),
+            "alcohol_detected": self.get_alcohol_level(),
             "temperature_c": self.get_temperature(),
             "humidity_percent": self.get_humidity(),
             "last_motion_timestamp": self.pir_sensor.last_motion_time,

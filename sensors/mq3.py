@@ -1,79 +1,93 @@
 from core.hardware_manager import hardware_manager
 import random
 import time
-
-# Since Raspberry Pi doesn't have a built-in ADC, we'll use spidev for a 
-# common ADC like the MCP3008. If spidev isn't installed, it will only work in simulation.
-try:
-    import spidev
-except ImportError:
-    spidev = None
+import RPi.GPIO as GPIO
 
 class MQ3:
-    def __init__(self, channel=0):
-        self.channel = channel
+    def __init__(self, digital_pin=6):
+        self.digital_pin = digital_pin
         self.simulation_mode = hardware_manager.simulation_mode
-        self.spi = None
         
         if not self.simulation_mode:
-            if spidev is None:
-                print("Warning: spidev library not found. MQ3 sensor will run in simulation mode.")
-                self.simulation_mode = True
-            else:
-                self.spi = spidev.SpiDev()
-                self.spi.open(0, 0)  # Open SPI bus 0, device 0
-                self.spi.max_speed_hz = 1350000
-                print(f"MQ-3 Alcohol Sensor initialized on ADC channel {self.channel}")
+            GPIO.setmode(GPIO.BCM)
+            GPIO.setup(self.digital_pin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+            print(f"MQ-3 Alcohol Sensor initialized on digital GPIO pin {self.digital_pin}")
+        else:
+            print("MQ-3 Alcohol Sensor initialized in simulation mode.")
 
-    def read_alcohol_level(self):
+    def read_alcohol_detected(self):
         """
-        Reads the raw analog value and returns it.
-        A real implementation would convert this value to mg/L based on calibration.
+        Reads the digital output pin.
+        Returns True if alcohol is detected (pin is HIGH), False otherwise.
         """
         if self.simulation_mode:
-            # print("Reading alcohol level (simulated)...")
-            return random.uniform(0.05, 0.4)
+            detected = random.choice([True, False])
+            # print(f"Simulated alcohol detection: {'Yes' if detected else 'No'}")
+            return detected
 
-        # Read SPI data from the MCP3008
-        adc = self.spi.xfer2([1, (8 + self.channel) << 4, 0])
-        data = ((adc[1] & 3) << 8) + adc[2]
-        return data
+        # The D0 pin on the module goes HIGH when the threshold is exceeded.
+        if GPIO.input(self.digital_pin) == GPIO.HIGH:
+            return True
+        else:
+            return False
 
     def calibrate(self):
         """
         Simulates a calibration period for the sensor to warm up.
+        With a digital pin, this is less about stabilizing readings and more about just letting the heater work.
         """
         print("Calibrating MQ-3 sensor (warming up)... Please wait 20 seconds.")
         if not self.simulation_mode:
-            # In a real scenario, you'd wait for the sensor reading to stabilize.
             time.sleep(20)
         print("Calibration complete.")
 
     def close(self):
-        if not self.simulation_mode and self.spi is not None:
-            try:
-                self.spi.close()
-                print("MQ-3 sensor SPI connection closed.")
-            except Exception as exc:
-                print(f"Warning: Failed to close MQ-3 SPI connection: {exc}")
-            finally:
-                self.spi = None
+        """
+        No action needed for digital GPIO reading, but method kept for consistency.
+        """
+        print("MQ-3 sensor resources released.")
 
 if __name__ == '__main__':
-    # Example usage
-    mq3_sensor = MQ3(channel=0)
-    mq3_sensor.calibrate()
+    # This block is for direct execution and testing only.
+    # It is self-contained and does not use the MQ3 class above to avoid import errors.
+    import RPi.GPIO as GPIO
+    import time
+
+    # --- Standalone Test Configuration ---
+    DIGITAL_PIN = 26  # The GPIO pin connected to the MQ-3's D0 output
+    # -------------------------------------
+
+    print("--- Standalone MQ-3 Digital Sensor Test ---")
+    print(f"Reading from GPIO pin: {DIGITAL_PIN}")
+    print("Press CTRL+C to exit.")
+
     try:
+        # Setup GPIO
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setup(DIGITAL_PIN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+
+        print("\nSensor warming up... Please wait about 20 seconds.")
+        # The sensor needs time for the heater to reach operating temperature.
+        # We'll print dots to show progress.
+        for i in range(20):
+            print(".", end='', flush=True)
+            time.sleep(1)
+        print("\nWarm-up complete. Starting readings.\n")
+
         while True:
-            alcohol_value = mq3_sensor.read_alcohol_level()
-            if mq3_sensor.simulation_mode:
-                print(f"Simulated alcohol level: {alcohol_value:.2f} (raw value)")
+            # The D0 pin goes HIGH when the alcohol concentration exceeds the threshold
+            # set by the onboard potentiometer.
+            if GPIO.input(DIGITAL_PIN) == GPIO.HIGH:
+                print("Alcohol DETECTED!")
             else:
-                print(f"Raw ADC value: {alcohol_value}")
-            time.sleep(2)
+                print("No alcohol detected.")
+            time.sleep(1)
+
     except KeyboardInterrupt:
-        print("\nExiting...")
+        print("\nExiting test.")
+    except Exception as e:
+        print(f"\nAn error occurred: {e}")
     finally:
-        if not mq3_sensor.simulation_mode and mq3_sensor.spi:
-            mq3_sensor.spi.close()
-            print("SPI connection closed.")
+        # Clean up GPIO settings on exit
+        GPIO.cleanup()
+        print("GPIO cleaned up.")

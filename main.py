@@ -17,6 +17,12 @@ try:
 except ImportError as e:
     print(f"Warning: Could not import robot_tools: {e}")
 
+all_sensor_tools = []
+try:
+    from tools.sensor_tools import all_sensor_tools
+except ImportError as e:
+    print(f"Warning: Could not import sensor_tools: {e}")
+
 # Provide a lightweight fallback `tool` decorator so code using `@tool` does not
 # crash at import time if LangChain isn't available yet. When LangChain is
 # imported later, its `tool` can replace this behavior for full integration.
@@ -579,6 +585,14 @@ def init_and_run_jarvis_core(ui_queue, user_input_queue):
             sensor_manager = SensorManager()
             sensor_manager.start()
             log("Sensor manager initialized.\n", "info")
+            
+            # Set the sensor manager reference for sensor tools
+            try:
+                from tools.sensor_tools import set_sensor_manager
+                set_sensor_manager(sensor_manager)
+            except ImportError:
+                pass  # sensor_tools not available
+                
         except ImportError as sensor_import_err:
             log(f"Sensor modules not found: {sensor_import_err}\n", "warning")
             log("Running without sensor support.\n", "info")
@@ -761,6 +775,7 @@ def init_and_run_jarvis_core(ui_queue, user_input_queue):
             get_mode_status, switch_mode,
         ]
         all_tools.extend(all_robot_tools)
+        all_tools.extend(all_sensor_tools)
 
         if os.getenv("JARVIS_DEBUG_TOOLS") == "1":
             try:
