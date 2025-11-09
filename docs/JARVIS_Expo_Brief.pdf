@@ -1,0 +1,348 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [4 0 R 6 0 R 8 0 R 10 0 R] /Count 4 >>
+endobj
+3 0 obj
+<< /Length 2129 >>
+stream
+BT
+/F1 12 Tf
+14 TL
+50 780 Td
+(JARVIS-IOT EXPO BRIEF \(NOV 2025\)) Tj
+T*
+( ) Tj
+T*
+(An Intelligent Guardian and Enterprise Assistant Platform) Tj
+T*
+( ) Tj
+T*
+(KEY EXPERIENCE HIGHLIGHTS) Tj
+T*
+( ) Tj
+T*
+(- Conversational Jarvis assistant with Gemini integration, Hinglish fluency, and) Tj
+T*
+(  synchronized LCD text so guests follow along even in loud expo floors.) Tj
+T*
+( ) Tj
+T*
+(- Always-on voice loop with motion-aware facial animations, giving a 'living' presence) Tj
+T*
+(  that reacts instantly to movement or speech.) Tj
+T*
+( ) Tj
+T*
+(- Modular robotics stack: pigpio-driven servos, L298N mobility, SPI/I2C sensors, and the) Tj
+T*
+(  new IR capture/replay toolset for universal-remote demos.) Tj
+T*
+( ) Tj
+T*
+(ENTERPRISE-READY FEATURE SET) Tj
+T*
+( ) Tj
+T*
+(- Role-based persona engine and memory tools let Jarvis shift from hospitality greeter to) Tj
+T*
+(  operations analyst without redeploying code.) Tj
+T*
+( ) Tj
+T*
+(- LangChain tooling allows scripted procedures: scan rooms, follow a user, update) Tj
+T*
+(  displays, or trigger facility workflows with natural-language triggers.) Tj
+T*
+( ) Tj
+T*
+(- Offline skill pack ensures continuity during network loss, while cloud services handle) Tj
+T*
+(  heavy reasoning when bandwidth is available.) Tj
+T*
+( ) Tj
+T*
+(GUARDIAN & PROTECTION SUITE) Tj
+T*
+( ) Tj
+T*
+(- 24/7 sentry mode: PIR motion, ultrasonic ranging, and camera tracking combine to monitor) Tj
+T*
+(  perimeters and orient Jarvis toward anomalies.) Tj
+T*
+( ) Tj
+T*
+(- Emergency-defense behaviors: raise audible alarm, activate warning lights via IR, and) Tj
+T*
+(  broadcast deterrent messages by code or voice.) Tj
+T*
+( ) Tj
+T*
+(- Personal safety protocols: on keywords like 'help' or 'kidnapping', Jarvis locks onto) Tj
+T*
+(  the speaker, records audio/video, and begins escalation.) Tj
+T*
+( ) Tj
+T*
+(INCIDENT ESCALATION WORKFLOW) Tj
+T*
+( ) Tj
+T*
+(1. Identify threat phrases or panic gestures; confirm via multi-sensor cross-check) Tj
+T*
+(   \(motion spike, abnormal proximity, sustained loudness\).) Tj
+T*
+( ) Tj
+T*
+(2. Secure the scene: illuminate area, focus camera, log environment metrics, and mark) Tj
+ET
+endstream
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 11 0 R >> >> /Contents 3 0 R >>
+endobj
+5 0 obj
+<< /Length 2200 >>
+stream
+BT
+/F1 12 Tf
+14 TL
+50 780 Td
+(   GPS/Wi-Fi triangulation for location reference.) Tj
+T*
+( ) Tj
+T*
+(3. Notify stakeholders: place VoIP/SIP call or webhook to security desk, auto-send SMS) Tj
+T*
+(   or email with timestamp, location, and live transcript to predefined family or) Tj
+T*
+(   guardians.) Tj
+T*
+( ) Tj
+T*
+(4. Escalate externally when required: package incident summary for local police or fire) Tj
+T*
+(   station, including address, captured media, and sensor readings.) Tj
+T*
+( ) Tj
+T*
+(5. Maintain evidence: archive 60-second pre and post buffers from microphones, cameras,) Tj
+T*
+(   and sensor snapshots to encrypted storage for review.) Tj
+T*
+( ) Tj
+T*
+(SAFETY SENSORS & AUTOMATION) Tj
+T*
+( ) Tj
+T*
+(- Air-quality and LPG monitoring: MQ-series sensors via MCP3008 detect gas spikes,) Tj
+T*
+(  triggering ventilation commands and alert scripts.) Tj
+T*
+( ) Tj
+T*
+(- Thermal and fire detection roadmap: integrate MLX90640 thermal array and flame sensors) Tj
+T*
+(  to flag overheating equipment or open flames.) Tj
+T*
+( ) Tj
+T*
+(- Structural awareness: ultrasonic sweep maps obstacles, while gyroscope \(planned\) detects) Tj
+T*
+(  tampering or forced movement.) Tj
+T*
+( ) Tj
+T*
+(- IR recording plus replay enables remote shutdown of appliances \(TVs, AC, heaters\) when) Tj
+T*
+(  hazards are detected.) Tj
+T*
+( ) Tj
+T*
+(BUSINESS & FUNDING OUTLOOK) Tj
+T*
+( ) Tj
+T*
+(- Security-as-a-service pilot: bundle Jarvis units with monitoring subscriptions for) Tj
+T*
+(  residential societies, co-working spaces, and campuses.) Tj
+T*
+( ) Tj
+T*
+(- Enterprise integrations: REST or MQTT APIs feed corporate security operations center) Tj
+T*
+(  dashboards \(Splunk, Azure Sentinel\) for compliance-grade logging.) Tj
+T*
+( ) Tj
+T*
+(- Partnership model: collaborate with facility managers, smart-home OEMs, and insurers to) Tj
+T*
+(  reduce incident response times and premiums.) Tj
+T*
+( ) Tj
+T*
+(- Revenue roadmap: hardware leasing, recurring AI concierge fees, premium analytics, and) Tj
+T*
+(  white-labeled assistant personas for brand partners.) Tj
+T*
+( ) Tj
+T*
+(FUTURE ROADMAP & INNOVATION) Tj
+T*
+( ) Tj
+T*
+(- Autonomous navigation: fuse LiDAR or vision SLAM with wheel encoders to patrol pre-) Tj
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 11 0 R >> >> /Contents 5 0 R >>
+endobj
+7 0 obj
+<< /Length 2087 >>
+stream
+BT
+/F1 12 Tf
+14 TL
+50 780 Td
+(  defined routes and auto-dock for charging.) Tj
+T*
+( ) Tj
+T*
+(- Emotionally intelligent responses: multimodal AI to read expressions or posture and) Tj
+T*
+(  adjust tone, stance, and messaging in real time.) Tj
+T*
+( ) Tj
+T*
+(- Edge AI upgrades: integrate local 7B-class language models for private deployments and) Tj
+T*
+(  add federated updates for continuous learning across fleets.) Tj
+T*
+( ) Tj
+T*
+(- Interoperability: Matter or OPC-UA connectors so Jarvis orchestrates HVAC, lighting, and) Tj
+T*
+(  access control in smart buildings.) Tj
+T*
+( ) Tj
+T*
+(RISK MANAGEMENT & COMPLIANCE) Tj
+T*
+( ) Tj
+T*
+(- Redundant power architecture isolates motors from compute, with watchdogs monitoring) Tj
+T*
+(  voltage, current draw, and pigpio health.) Tj
+T*
+( ) Tj
+T*
+(- Privacy-first logging: redact personal data, offer opt-in modes, and align with GDPR or) Tj
+T*
+(  DPDP compliance for enterprise pilots.) Tj
+T*
+( ) Tj
+T*
+(- Fail-safe overrides: physical emergency stop, remote kill-switch API, and scripted self-) Tj
+T*
+(  checks \(verify_fixes.sh\) before public demos.) Tj
+T*
+( ) Tj
+T*
+(- Spare modules and recovery plan: hot-swappable servos, pre-flashed SD recovery cards,) Tj
+T*
+(  and cloud backups of configuration.) Tj
+T*
+( ) Tj
+T*
+(SENSORS & PROTECTIVE COVERAGE SUMMARY) Tj
+T*
+( ) Tj
+T*
+(- Motion \(PIR BCM17\) and ultrasonic \(TRIG 27 / ECHO 22\) provide wide-angle human and) Tj
+T*
+(  obstacle detection.) Tj
+T*
+( ) Tj
+T*
+(- Environmental \(DHT BCM4, MQ-3 via SPI\) track temperature, humidity, alcohol or LPG) Tj
+T*
+(  levels for fire and leak prevention.) Tj
+T*
+( ) Tj
+T*
+(- IR guard mode logs and replays remote commands for appliance shutdown or emergency) Tj
+T*
+(  signage activation.) Tj
+T*
+( ) Tj
+T*
+(- Display and audio cues keep occupants informed during alerts, while networking stack) Tj
+T*
+(  dispatches help autonomously.) Tj
+T*
+( ) Tj
+T*
+(CONTACT & EXPO READINESS) Tj
+T*
+( ) Tj
+T*
+(- Live demo checklist: run test_complete_hardware.py, confirm pigpiod plus sensors, load) Tj
+T*
+(  IR remote profiles, and stage panic-word drill.) Tj
+ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 11 0 R >> >> /Contents 7 0 R >>
+endobj
+9 0 obj
+<< /Length 305 >>
+stream
+BT
+/F1 12 Tf
+14 TL
+50 780 Td
+( ) Tj
+T*
+(- Provide QR code to this brief, video sizzle reel, and investment deck outlining unit) Tj
+T*
+(  economics and deployment timeline.) Tj
+T*
+( ) Tj
+T*
+(- Team prepared for Q&A on manufacturing partners, certification roadmap, and AI safety) Tj
+T*
+(  protocols.) Tj
+ET
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 11 0 R >> >> /Contents 9 0 R >>
+endobj
+11 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 12
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000140 00000 n 
+0000002321 00000 n 
+0000002448 00000 n 
+0000004700 00000 n 
+0000004827 00000 n 
+0000006966 00000 n 
+0000007093 00000 n 
+0000007449 00000 n 
+0000007577 00000 n 
+trailer
+<< /Size 12 /Root 1 0 R >>
+startxref
+7648
+%%EOF

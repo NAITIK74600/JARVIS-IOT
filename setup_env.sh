@@ -25,7 +25,7 @@ if [ ! -f requirements.txt ]; then
   echo "Warning: requirements.txt not found in repository root. Skipping pip install." >&2
 else
   echo "Installing Python packages from requirements.txt (this may take several minutes)..."
-  pip install -r requirements.txt
+  "$VENV_DIR/bin/python" -m pip install -r requirements.txt
 fi
 
 cat <<'EOF'

@@ -53,6 +53,7 @@ google-api-python-client
 google-auth
 google-auth-oauthlib
 pyaudio
+indic-transliteration
 
 # Networking
 whois

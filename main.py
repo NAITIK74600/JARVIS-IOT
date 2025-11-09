@@ -519,6 +519,13 @@ class JarvisApp:
         """Updates the status bar text."""
         self.status_bar.config(text=text)
 
+    def update_voice_status(self, status):
+        """Updates the UI based on voice engine status ('listening' or 'idle')."""
+        if status == "listening":
+            self.status_bar.config(text="Listening...", fg="cyan")
+        else:
+            self.status_bar.config(text="Ready", fg=self.text_fg)
+
     def process_ui_queue(self):
         """Processes messages from the Jarvis core to update the UI."""
         try:
@@ -528,6 +535,8 @@ class JarvisApp:
                     self.log_message(payload['msg'], payload.get('tag'))
                 elif message_type == "status":
                     self.update_status(payload)
+                elif message_type == "voice_status":
+                    self.update_voice_status(payload)
                 elif message_type == "exit":
                     self.root.quit()
         finally:
@@ -594,6 +603,7 @@ def init_and_run_jarvis_core(ui_queue, user_input_queue):
         from core.jarvis_core import JarvisCore
         from core.memory import JarvisMemory
         from core.persona import persona
+        from core.greeting_manager import GreetingManager
         from user_profile import user_profile
         
         from tools.file_system_tools import list_files, read_file, write_file, delete_file
@@ -609,7 +619,16 @@ def init_and_run_jarvis_core(ui_queue, user_input_queue):
         
         # Try to import IR tools (optional - needs lirc library)
         try:
-            from tools.ir_tools import ir_list_remotes, ir_list_commands, ir_send_command, ir_learn_command
+            from tools.ir_tools import (
+                ir_list_remotes,
+                ir_list_commands,
+                ir_send_command,
+                ir_learn_command,
+                ir_record_signal,
+                ir_send_saved_signal,
+                ir_list_saved_signals,
+                ir_delete_signal,
+            )
             ir_tools_available = True
             log("IR remote control tools loaded.\n", "info")
         except ImportError as ir_err:
@@ -636,6 +655,26 @@ def init_and_run_jarvis_core(ui_queue, user_input_queue):
                 """Learn an IR command placeholder when IR support is disabled."""
                 return "IR tools not available"
 
+            @tool
+            def ir_record_signal(_: str = "") -> str:
+                """Record IR placeholder when IR support is disabled."""
+                return "IR tools not available"
+
+            @tool
+            def ir_send_saved_signal(_: str = "") -> str:
+                """Send saved IR placeholder when IR support is disabled."""
+                return "IR tools not available"
+
+            @tool
+            def ir_list_saved_signals(_: str = "") -> str:
+                """List saved IR placeholder when IR support is disabled."""
+                return "IR tools not available"
+
+            @tool
+            def ir_delete_signal(_: str = "") -> str:
+                """Delete saved IR placeholder when IR support is disabled."""
+                return "IR tools not available"
+
         log("Components loaded.\n", "info")
         
         # Update display
@@ -660,11 +699,50 @@ def init_and_run_jarvis_core(ui_queue, user_input_queue):
 
         # --- User Profile ---
         user_name = user_profile.get("name", "Sir")
+        greeting_manager = GreetingManager(
+            user_name=user_name,
+            location_hint=os.getenv("JARVIS_LOCATION", "control room"),
+        )
 
         # --- Initialize Memory ---
         memory = JarvisMemory()
 
         # --- Tool Aggregation ---
+
+        @tool
+        def warm_welcome(_: str = "") -> str:
+            """Deliver a friendly greeting sequence with voice and display."""
+            script = greeting_manager.build_interactive_greeting()
+            combined = script.speech_text()
+
+            log(f"Jarvis {combined}\n", "jarvis")
+
+            if voice_engine:
+                for line in script.speech_lines:
+                    try:
+                        voice_engine.speak(line)
+                    except Exception as speak_err:
+                        log(f"Warm welcome speech error: {speak_err}\n", "warning")
+                        break
+
+            try:
+                from actuators.display import display
+
+                display.clear()
+                for row, text in enumerate(script.display_lines[:2]):
+                    text = text[:16]
+                    col = max(0, (16 - len(text)) // 2)
+                    display.write_text(text, row=row, col=col)
+                try:
+                    display.show_face("happy")
+                except Exception:
+                    pass
+            except Exception as disp_err:
+                log(f"Warm welcome display warning: {disp_err}\n", "warning")
+
+            update_status(script.status_line)
+            return combined or "Hello!"
+
         all_tools = [
             get_current_system_time, get_os_version, get_cpu_usage, get_ram_usage,
             open_webpage, search_web, get_ip_address, check_internet_connection,
@@ -675,8 +753,9 @@ def init_and_run_jarvis_core(ui_queue, user_input_queue):
             read_from_memory, write_to_memory, delete_from_memory,
             get_installed_apps, launch_app,
             get_calendar_events, create_calendar_event, get_weather, get_news,
-            display_text, clear_display, show_face,
+            display_text, clear_display, show_face, warm_welcome,
             ir_list_remotes, ir_list_commands, ir_send_command, ir_learn_command,
+            ir_record_signal, ir_send_saved_signal, ir_list_saved_signals, ir_delete_signal,
             move_forward, move_backward, turn_left, turn_right, stop_moving,
             track_face, stop_face_tracking, follow_me, stop_following, get_tracking_status,
             get_mode_status, switch_mode,
@@ -725,6 +804,13 @@ def init_and_run_jarvis_core(ui_queue, user_input_queue):
                 log(f"Processing: '{transcript}'\n", "info")
                 update_status("Thinking...")
                 
+                # Show listening face on display
+                try:
+                    from tools.display_response import show_listening
+                    show_listening()
+                except:
+                    pass
+                
                 # Quick acknowledgment for faster perceived response (optional)
                 # Uncomment to add instant audio feedback:
                 # if voice_engine and len(transcript.split()) > 3:
@@ -744,6 +830,20 @@ def init_and_run_jarvis_core(ui_queue, user_input_queue):
 
                 ready_status = f"Ready. Active model: {provider_name}" if provider_name else "Ready."
                 update_status(ready_status)
+
+                # Show response on display while speaking
+                try:
+                    from tools.display_response import show_speaking, show_response
+                    show_speaking()
+                    # Display response text in parallel with speech
+                    import threading
+                    display_thread = threading.Thread(
+                        target=lambda: show_response(response_text, duration=8.0, scroll=True),
+                        daemon=True
+                    )
+                    display_thread.start()
+                except:
+                    pass
 
                 # SPEAK the response (TTS generation happens here)
                 if voice_engine and response_text:
@@ -766,6 +866,7 @@ def init_and_run_jarvis_core(ui_queue, user_input_queue):
                 wake_word_activation_callback=jarvis.activate_listening,
                 transcript_callback=voice_input_handler  # Use wrapper that speaks responses
             )
+            voice_engine.set_ui_update_callback(lambda status: ui_queue.put(("voice_status", status)))
             voice_engine.start()
             log("Voice Engine is running in continuous mode.\n", "info")
             update_status("Ready. Speak directly (no wake word needed).")
@@ -775,25 +876,43 @@ def init_and_run_jarvis_core(ui_queue, user_input_queue):
             update_status("Ready (text-only).")
 
         # --- Main Execution Loop ---
-        greeting_msg = f"J.A.R.V.I.S. is online. Good to see you, Sir."
-        log(f"{greeting_msg}\n", "jarvis")
-        
-        # Speak the greeting - Tony Stark style
+        startup_script = greeting_manager.build_startup_greeting()
+        startup_text = startup_script.speech_text() or "Jarvis is online."
+        log(f"Jarvis {startup_text}\n", "jarvis")
+
         if voice_engine:
-            voice_engine.speak("Good to see you, Sir.")
-        
-        # Update display - System Ready
+            for line in startup_script.speech_lines:
+                try:
+                    voice_engine.speak(line)
+                except Exception as speak_err:
+                    log(f"Startup greeting speech error: {speak_err}\n", "warning")
+                    break
+
         try:
             from actuators.display import display
             display.clear()
-            display.write_text("JARVIS Online", row=0, col=2)
-            display.write_text("Ready", row=1, col=5)
+            for row, text in enumerate(startup_script.display_lines[:2]):
+                text = text[:16]
+                col = max(0, (16 - len(text)) // 2)
+                display.write_text(text, row=row, col=col)
+            try:
+                display.show_face('happy')
+            except Exception:
+                pass
             time.sleep(1)
-            display.show_face('neutral')
+            try:
+                display.show_face('neutral')
+            except Exception:
+                pass
             if not getattr(display, "simulation_mode", True):
-                display.start_idle_animation()
-        except:
-            pass
+                try:
+                    display.start_idle_animation()
+                except Exception:
+                    pass
+        except Exception as disp_err:
+            log(f"Startup greeting display warning: {disp_err}\n", "warning")
+
+        update_status(startup_script.status_line)
         
         while True:
             try:

@@ -41,9 +41,9 @@ class FaceTracker:
         self.servo_step = 5  # Degrees to move servo
         self.min_face_size = (50, 50)  # Minimum face size to detect
         
-        # Servo limits (neck servo typically 30-150 degrees)
-        self.servo_min = 30
-        self.servo_max = 150
+        # Servo limits (neck servo: 0=right, 90=center, 180=left)
+        self.servo_min = 0
+        self.servo_max = 180
         self.servo_center = 90
         
         print("FaceTracker initialized")

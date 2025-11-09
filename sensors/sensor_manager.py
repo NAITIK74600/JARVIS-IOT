@@ -18,8 +18,10 @@ class SensorManager:
         self.sensor_status = {}
         
         # PIR motion sensor (defaults to BCM 17)
+        pir_pin = int(os.getenv('PIR_PIN', '17'))
         try:
-            self.pir_sensor = PIR(pin=int(os.getenv('PIR_PIN', '17')), on_motion_callback=self._pir_motion_wrapper)
+            print(f"Configuring PIR sensor on BCM {pir_pin}")
+            self.pir_sensor = PIR(pin=pir_pin, on_motion_callback=self._pir_motion_wrapper)
             self.sensor_status['pir'] = True
             print("✓ PIR sensor initialized")
         except Exception as e:
@@ -28,9 +30,10 @@ class SensorManager:
             self.sensor_status['pir'] = False
 
         # Ultrasonic sensor (updated pins: 27=TRIG, 22=ECHO to avoid servo conflict)
+        trig_pin = int(os.getenv('ULTRASONIC_TRIGGER_PIN', '27'))
+        echo_pin = int(os.getenv('ULTRASONIC_ECHO_PIN', '22'))
         try:
-            trig_pin = int(os.getenv('ULTRASONIC_TRIGGER_PIN', '27'))
-            echo_pin = int(os.getenv('ULTRASONIC_ECHO_PIN', '22'))
+            print(f"Configuring ultrasonic sensor (TRIG={trig_pin}, ECHO={echo_pin})")
             self.ultrasonic_sensor = Ultrasonic(trigger_pin=trig_pin, echo_pin=echo_pin)
             self.sensor_status['ultrasonic'] = True
             print("✓ Ultrasonic sensor initialized")
@@ -39,29 +42,40 @@ class SensorManager:
             self.ultrasonic_sensor = None
             self.sensor_status['ultrasonic'] = False
         
-        # MQ-3 sensor
-        try:
-            self.mq3_sensor = MQ3(channel=int(os.getenv('MQ3_ADC_CHANNEL', '0')))
-            self.sensor_status['mq3'] = True
-            print("✓ MQ-3 sensor initialized")
-        except Exception as e:
-            print(f"✗ MQ-3 sensor failed: {e}")
+        # MQ-3 sensor (DISABLED - requires ADC/MCP3008)
+        # Set MQ3_ENABLED=true in environment to enable
+        if os.getenv('MQ3_ENABLED', 'false').lower() in ('true', '1', 'yes'):
+            try:
+                self.mq3_sensor = MQ3(channel=int(os.getenv('MQ3_ADC_CHANNEL', '0')))
+                self.sensor_status['mq3'] = True
+                print("✓ MQ-3 sensor initialized")
+            except Exception as e:
+                print(f"✗ MQ-3 sensor failed: {e}")
+                self.mq3_sensor = None
+                self.sensor_status['mq3'] = False
+        else:
+            print("⊗ MQ-3 sensor disabled (requires ADC - set MQ3_ENABLED=true to enable)")
             self.mq3_sensor = None
             self.sensor_status['mq3'] = False
         
         # DHT11 sensor
+        dht_pin = int(os.getenv('DHT_PIN', '4'))
+        raw_type = os.getenv('DHT_TYPE', '11')
+        digits_only = ''.join(ch for ch in raw_type if ch.isdigit())
+        dht_type = digits_only if digits_only in ('11', '22') else '11'
         try:
-            self.dht_sensor = DHT(pin=int(os.getenv('DHT_PIN', '4')))
+            print(f"Configuring DHT sensor on BCM {dht_pin} (type DHT{dht_type})")
+            self.dht_sensor = DHT(pin=dht_pin, sensor_type=f'DHT{dht_type}')
             # Test read to verify it's actually working
             test_temp = self.dht_sensor.read_temperature()
             if test_temp is not None:
                 self.sensor_status['dht'] = True
-                print("✓ DHT11 sensor initialized and working")
+                print(f"✓ DHT sensor initialized and working (type DHT{dht_type})")
             else:
                 self.sensor_status['dht'] = False
-                print("⚠ DHT11 initialized but not reading (check wiring)")
+                print("⚠ DHT sensor initialized but not reading (check wiring)")
         except Exception as e:
-            print(f"✗ DHT11 sensor failed: {e}")
+            print(f"✗ DHT sensor failed: {e}")
             self.dht_sensor = None
             self.sensor_status['dht'] = False
 

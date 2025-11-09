@@ -10,8 +10,8 @@ is an instance of the single Servo class.
 
 Default Pinout (BCM numbering):
 - Neck Servo: BCM 18 (head rotation)
-- Left Hand Servo: BCM 23
-- Right Hand Servo: BCM 24
+- Left Hand Servo: BCM 25
+- Right Hand Servo: BCM 23
 
 These can be overridden with environment variables:
 - SERVO_PIN_NECK
@@ -52,19 +52,26 @@ class MultiServoController:
                 'pin': int(os.getenv('SERVO_PIN_NECK', 18)),
                 'min_pulse': int(os.getenv('SERVO_MIN_PULSE_NECK', 500)),
                 'max_pulse': int(os.getenv('SERVO_MAX_PULSE_NECK', 2400)),
-                'angle_offset': int(os.getenv('SERVO_OFFSET_NECK', 90)),  # 0° logical = 90° physical (forward)
+                'angle_offset': int(os.getenv('SERVO_OFFSET_NECK', 0)),
+                'min_angle': int(os.getenv('SERVO_MIN_ANGLE_NECK', 0)),
+                'max_angle': int(os.getenv('SERVO_MAX_ANGLE_NECK', 180)),
+                'reverse': os.getenv('SERVO_REVERSE_NECK', 'false').lower() in ('true', '1', 'yes'),
             },
             'arm_l': {
-                'pin': int(os.getenv('SERVO_PIN_ARM_L', 23)),
+                'pin': int(os.getenv('SERVO_PIN_ARM_L', 25)),
                 'min_pulse': int(os.getenv('SERVO_MIN_PULSE_ARM_L', 500)),
                 'max_pulse': int(os.getenv('SERVO_MAX_PULSE_ARM_L', 2400)),
                 'angle_offset': int(os.getenv('SERVO_OFFSET_ARM_L', 0)),
+                'min_angle': int(os.getenv('SERVO_MIN_ANGLE_ARM_L', 70)),
+                'max_angle': int(os.getenv('SERVO_MAX_ANGLE_ARM_L', 160)),
             },
             'arm_r': {
-                'pin': int(os.getenv('SERVO_PIN_ARM_R', 24)),
+                'pin': int(os.getenv('SERVO_PIN_ARM_R', 23)),
                 'min_pulse': int(os.getenv('SERVO_MIN_PULSE_ARM_R', 500)),
                 'max_pulse': int(os.getenv('SERVO_MAX_PULSE_ARM_R', 2400)),
                 'angle_offset': int(os.getenv('SERVO_OFFSET_ARM_R', 0)),
+                'min_angle': int(os.getenv('SERVO_MIN_ANGLE_ARM_R', 65)),
+                'max_angle': int(os.getenv('SERVO_MAX_ANGLE_ARM_R', 160)),
             },
         }
 
@@ -74,12 +81,21 @@ class MultiServoController:
                     pin=config['pin'], 
                     min_pulse=config['min_pulse'], 
                     max_pulse=config['max_pulse'],
-                    angle_offset=config.get('angle_offset', 0)
+                    angle_offset=config.get('angle_offset', 0),
+                    min_angle=config.get('min_angle', 0),
+                    max_angle=config.get('max_angle', 180),
+                    reverse=config.get('reverse', False)
                 )
+                # Only add the servo if pigpio was successfully initialized
+                if servo.pi is None:
+                    raise RuntimeError("pigpio not available or daemon not running.")
+                
                 self.servos[name] = servo
                 self.servo_locks[name] = threading.Lock()
                 offset_info = f" (offset: {config.get('angle_offset', 0)}°)" if config.get('angle_offset', 0) != 0 else ""
-                print(f"Initialized servo '{name}' on BCM pin {config['pin']}{offset_info}")
+                reverse_info = " [REVERSED]" if config.get('reverse', False) else ""
+                limit_info = f" [safe: {config.get('min_angle', 0)}°-{config.get('max_angle', 180)}°]"
+                print(f"Initialized servo '{name}' on BCM pin {config['pin']}{offset_info}{reverse_info}{limit_info}")
             except Exception as e:
                 print(f"Warning: Could not initialize servo '{name}' on pin {config['pin']}: {e}")
         

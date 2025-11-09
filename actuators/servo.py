@@ -51,7 +51,7 @@ def _release_shared_pigpio():
                 _pigpio_instance_count = 0
 
 class Servo:
-    def __init__(self, pin, min_pulse=500, max_pulse=2400, angle_offset=0, verbose=None):
+    def __init__(self, pin, min_pulse=500, max_pulse=2400, angle_offset=0, min_angle=0, max_angle=180, reverse=False, verbose=None):
         """High level servo abstraction using pigpio.
 
         Many hobby servos respond safely in roughly the 500–2400µs pulse width
@@ -63,12 +63,18 @@ class Servo:
             min_pulse: Minimum pulse width in microseconds
             max_pulse: Maximum pulse width in microseconds
             angle_offset: Angle offset to apply (e.g., -90 makes 90° physical = 0° logical)
+            min_angle: Minimum safe angle (software limit)
+            max_angle: Maximum safe angle (software limit)
+            reverse: Reverse direction (180° becomes 0°, 0° becomes 180°)
             verbose: Enable verbose logging
         """
         self.pin = pin
         self.min_pulse = min_pulse
         self.max_pulse = max_pulse
         self.angle_offset = angle_offset  # Angle offset for logical remapping
+        self.min_angle = min_angle  # Safe minimum angle
+        self.max_angle = max_angle  # Safe maximum angle
+        self.reverse = reverse  # Reverse direction flag
         self.current_angle = None
         self._cleaned_up = False  # Track cleanup state
         # Verbosity control
@@ -93,15 +99,26 @@ class Servo:
 
     def set_angle(self, angle):
         """
-        Set servo to logical angle.
+        Set servo to logical angle with safety limits.
         The angle_offset is applied to convert logical to physical angle.
+        Angle is clamped to min_angle and max_angle for safety.
+        If reverse is True, the direction is inverted.
         
         Args:
-            angle: Logical angle (can be negative depending on offset configuration)
+            angle: Logical angle
         """
         if self.pi is None:
             print("[WARN] pigpio not connected. Angle ignored. (Did pigpiod start?)")
             return
+        
+        # Apply software safety limits
+        if angle < self.min_angle or angle > self.max_angle:
+            print(f"[WARN] Angle {angle}° out of safe range ({self.min_angle}°–{self.max_angle}°). Clamping.")
+            angle = max(self.min_angle, min(self.max_angle, angle))
+        
+        # Apply reverse if enabled (invert direction)
+        if self.reverse:
+            angle = 180 - angle
         
         # Apply angle offset to convert logical to physical angle
         physical_angle = angle + self.angle_offset

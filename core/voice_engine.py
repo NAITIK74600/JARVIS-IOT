@@ -18,8 +18,43 @@ from gtts import gTTS
 from playsound import playsound
 import re
 import uuid
+from indic_transliteration import sanscript
+from indic_transliteration.sanscript import transliterate
 
 load_dotenv()
+
+def fix_bluetooth_microphone():
+    """
+    Automatically fix Bluetooth microphone configuration.
+    Ensures the Predator Xo5 Bluetooth headset is set to headset profile with mic enabled.
+    """
+    try:
+        # Set Bluetooth card profile to headset-head-unit (enables microphone)
+        result = subprocess.run(
+            ['pactl', 'set-card-profile', 'bluez_card.39_5F_03_1E_F7_09', 'headset-head-unit'],
+            capture_output=True,
+            text=True,
+            timeout=3
+        )
+        
+        if result.returncode == 0:
+            print("[VOICE] ✓ Bluetooth microphone profile fixed")
+            time.sleep(0.5)  # Wait for profile to activate
+            
+            # Set as default source
+            subprocess.run(['pactl', 'set-default-source', 'bluez_input.39:5F:03:1E:F7:09'],
+                         capture_output=True, timeout=2)
+            subprocess.run(['pactl', 'set-source-mute', 'bluez_input.39:5F:03:1E:F7:09', '0'],
+                         capture_output=True, timeout=2)
+            subprocess.run(['pactl', 'set-source-volume', 'bluez_input.39:5F:03:1E:F7:09', '100%'],
+                         capture_output=True, timeout=2)
+            return True
+        else:
+            print(f"[VOICE] ✗ Failed to fix Bluetooth profile: {result.stderr}")
+            return False
+    except Exception as e:
+        print(f"[VOICE] Could not auto-fix Bluetooth microphone: {e}")
+        return False
 
 class VoiceEngine:
     def __init__(self, wake_word=None, wake_word_activation_callback=None, transcript_callback=None):
@@ -45,24 +80,32 @@ class VoiceEngine:
         # --- Audio & Recognition defaults ---
         self.audio_interface = None
         self.stream = None
-        self.CHUNK = 8192  # Increased for better noise handling and recognition
+        self.CHUNK = 2048  # Optimized for real-time recognition
         self.FORMAT = pyaudio.paInt16
         self.CHANNELS = 1
         self.RATE = 16000
         self.voice_available = False
         
-        # Microphone gain/sensitivity settings - OPTIMIZED FOR BETTER RECOGNITION
-        self.INPUT_GAIN = 2.0  # Increased to 2x boost for better pickup
-        self.NOISE_THRESHOLD = 200  # Reduced threshold for better voice detection (was 500)
-        self.SILENCE_LIMIT = 2  # Seconds of silence before processing
-        self.MIN_PHRASE_LENGTH = 0.3  # Minimum phrase duration in seconds
+                # Microphone gain/sensitivity settings - DYNAMIC
+        self.INPUT_GAIN = 3.5  # A strong but safe boost
+        self.NOISE_THRESHOLD = 120 # A baseline for the dynamic gate
+        self.SILENCE_LIMIT = 1.2  # Seconds of silence before considering speech ended
+        self.MIN_PHRASE_LENGTH = 0.2  # Minimum duration of speech to process
         
         # --- Vosk Initialization ---
         self.microphone_index = None
 
-        self.vosk_model = self._load_vosk_model("vosk-model-small-en-us-0.15")
+        # Use English model for better Hinglish/English recognition
+        vosk_model_name = os.getenv("VOSK_MODEL", "vosk-model-small-en-us-0.15")
+        print(f"[VOICE] Loading voice model: {vosk_model_name}")
+        self.vosk_model = self._load_vosk_model(vosk_model_name)
+        
         if not self.vosk_model:
-            print("Error: English Vosk model not found. Voice input is disabled.")
+            print(f"English model '{vosk_model_name}' not found, trying Hindi model...")
+            self.vosk_model = self._load_vosk_model("vosk-model-small-hi-0.22")
+        
+        if not self.vosk_model:
+            print("Error: No Vosk model found. Voice input is disabled.")
         else:
             try:
                 self.audio_interface = pyaudio.PyAudio()
@@ -82,6 +125,8 @@ class VoiceEngine:
         self.voice_thread = None
         self.is_awake = False
         self.command_timeout_thread = None
+        # --- UI/Widget Integration ---
+        self.ui_update_callback = None
         self.temp_audio_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "temp_audio")
         
         # Audio cache for common phrases (instant playback)
@@ -103,70 +148,43 @@ class VoiceEngine:
 
     def _resolve_microphone_index(self, audio_interface: pyaudio.PyAudio):
         """
-        Determines which microphone index to use for listening.
-        Prioritizes Bluetooth devices (like Mini Boost 4) and PulseAudio.
+        Simple microphone detection - just uses whatever input device is available.
+        No forcing, no priority - completely automatic.
         """
         env_index = os.getenv("MICROPHONE_INDEX")
-        if env_index is not None:
+        if env_index is not None and env_index.strip():
             try:
                 candidate = int(env_index)
                 info = audio_interface.get_device_info_by_index(candidate)
                 print(f"[VOICE] Using microphone from .env: {info.get('name')}")
                 return candidate
-            except Exception:
-                print(f"Invalid MICROPHONE_INDEX '{env_index}' in .env. Falling back to auto-detection.")
+            except Exception as e:
+                print(f"[VOICE] Invalid MICROPHONE_INDEX in .env: {e}")
 
-        # Priority order: Bluetooth > PulseAudio > Others
-        bluetooth_index = None
-        pulse_index = None
-        fallback_index = None
-        
+        # Simple auto-detection: just use the first input device that works
         try:
             device_count = audio_interface.get_device_count()
-            print(f"[VOICE] Scanning {device_count} audio devices for microphone...")
+            print(f"[VOICE] Auto-detecting microphone from {device_count} devices...")
             
             for i in range(device_count):
-                info = audio_interface.get_device_info_by_index(i)
-                name = info.get('name', '').lower()
-                max_input = info.get('maxInputChannels', 0)
-                
-                if max_input > 0:
-                    print(f"[VOICE] Found input device {i}: {info.get('name')} ({max_input} channels)")
+                try:
+                    info = audio_interface.get_device_info_by_index(i)
+                    max_input = info.get('maxInputChannels', 0)
                     
-                    # Priority 1: Bluetooth devices (Mini Boost 4)
-                    if 'bluez' in name or 'bluetooth' in name:
-                        bluetooth_index = i
-                        print(f"[VOICE] ✓ Bluetooth microphone detected: {info.get('name')}")
-                    
-                    # Priority 2: PulseAudio
-                    elif 'pulse' in name:
-                        if pulse_index is None:
-                            pulse_index = i
-                            print(f"[VOICE] ✓ PulseAudio microphone detected: {info.get('name')}")
-                    
-                    # Priority 3: Any other input device
-                    elif fallback_index is None:
-                        fallback_index = i
+                    if max_input > 0:
+                        name = info.get('name', 'Unknown')
+                        print(f"[VOICE] 🎤 Using microphone: {name} (index {i})")
+                        return i
+                        
+                except Exception:
+                    continue
                         
         except Exception as e:
-            print(f"[VOICE] Error enumerating microphone devices: {e}")
+            print(f"[VOICE] Error detecting microphone: {e}")
             return None
 
-        # Select microphone in priority order
-        if bluetooth_index is not None:
-            selected = bluetooth_index
-            print(f"[VOICE] 🎤 Selected: Bluetooth microphone (index {selected})")
-        elif pulse_index is not None:
-            selected = pulse_index
-            print(f"[VOICE] 🎤 Selected: PulseAudio microphone (index {selected})")
-        elif fallback_index is not None:
-            selected = fallback_index
-            print(f"[VOICE] 🎤 Selected: Default microphone (index {selected})")
-        else:
-            print("[VOICE] ✗ No microphone-capable audio devices found!")
-            return None
-            
-        return selected
+        print("[VOICE] ✗ No microphone found!")
+        return None
 
     def _init_tts(self):
         """Initializes available TTS backends (Google TTS preferred for quality)."""
@@ -596,6 +614,10 @@ class VoiceEngine:
         except:
             pass  # Silent fail for background caching
 
+    def set_ui_update_callback(self, callback):
+        """Sets the callback function to update the UI/widget."""
+        self.ui_update_callback = callback
+
     def _listening_loop(self):
         """
         The core loop that continuously listens to the microphone stream.
@@ -627,9 +649,24 @@ class VoiceEngine:
             
         except Exception as e:
             print(f"[VOICE] ✗ Failed to open microphone stream: {e}")
-            print(f"[VOICE] Trying to list available devices...")
-            list_audio_devices()
-            return
+            
+            # Try to auto-fix Bluetooth microphone configuration
+            print("[VOICE] Attempting to fix Bluetooth microphone configuration...")
+            if fix_bluetooth_microphone():
+                # Retry opening the stream after fix
+                try:
+                    time.sleep(1)  # Wait for audio system to stabilize
+                    self.stream = self.audio_interface.open(**open_kwargs)
+                    print("[VOICE] ✓ Microphone stream opened after fix!")
+                except Exception as retry_error:
+                    print(f"[VOICE] ✗ Still failed after fix: {retry_error}")
+                    print(f"[VOICE] Trying to list available devices...")
+                    list_audio_devices()
+                    return
+            else:
+                print(f"[VOICE] Trying to list available devices...")
+                list_audio_devices()
+                return
 
         recognizer = KaldiRecognizer(self.vosk_model, self.RATE)
         recognizer.SetWords(True)  # Enable word-level timing for better accuracy
@@ -637,18 +674,42 @@ class VoiceEngine:
         # Import numpy for audio processing
         import numpy as np
         
+        # --- Dynamic Noise Gate ---
+        self.dynamic_noise_threshold = self.NOISE_THRESHOLD  # Start with the baseline
+        self.last_noise_check = time.time()
+        
         # Track audio levels for debugging
         last_status_time = time.time()
         speech_detected_count = 0
         
         if self.continuous_mode:
             print(f"🎤 Continuous listening mode - Speak directly (no wake word needed)")
-            print(f"🎤 Microphone gain: {self.INPUT_GAIN}x | Noise threshold: {self.NOISE_THRESHOLD}")
+            print(f"🎤 Microphone gain: {self.INPUT_GAIN}x | Initial Noise Threshold: {self.dynamic_noise_threshold}")
             print(f"🎤 Listening... (speak clearly and close to mic)")
             self.is_awake = True  # Always awake in continuous mode
         else:
             print(f"🎤 Listening for wake word: '{self.wake_word}'...")
         
+        # --- Ambient Noise Calibration ---
+        print("[VOICE] Calibrating for ambient noise...")
+        noise_levels = []
+        calibration_end_time = time.time() + 1.5  # Calibrate for 1.5 seconds
+        while time.time() < calibration_end_time:
+            try:
+                data = self.stream.read(self.CHUNK, exception_on_overflow=False)
+                audio_data = np.frombuffer(data, dtype=np.int16)
+                noise_levels.append(np.abs(audio_data).mean())
+            except (IOError, OSError):
+                pass # Ignore overflows during calibration
+        
+        if noise_levels:
+            avg_noise = np.mean(noise_levels)
+            # Set threshold to be a factor of the average noise, but with a floor and ceiling
+            self.dynamic_noise_threshold = max(80, min(300, avg_noise * 2.5))
+            print(f"[VOICE] ✓ Calibration complete. Dynamic Noise Threshold set to: {int(self.dynamic_noise_threshold)}")
+        else:
+            print("[VOICE] ✗ Calibration failed. Using default threshold.")
+
         while not self._stop_listening.is_set():
             try:
                 data = self.stream.read(self.CHUNK, exception_on_overflow=False)
@@ -660,16 +721,16 @@ class VoiceEngine:
                 # Apply input gain (boost microphone volume)
                 audio_data = np.clip(audio_data * self.INPUT_GAIN, -32768, 32767).astype(np.int16)
                 
-                # Simple noise gate - only process if audio level is above threshold
+                # Simple noise gate - only process if audio level is above the DYNAMIC threshold
                 audio_level = np.abs(audio_data).mean()
                 
                 # Show audio level every 3 seconds for debugging
                 if time.time() - last_status_time > 3:
-                    print(f"[MIC] Audio level: {int(audio_level)} | Threshold: {self.NOISE_THRESHOLD} | Detected: {speech_detected_count}")
+                    print(f"[MIC] Audio level: {int(audio_level)} | Threshold: {int(self.dynamic_noise_threshold)} | Detected: {speech_detected_count}")
                     last_status_time = time.time()
                     speech_detected_count = 0
                 
-                if audio_level < self.NOISE_THRESHOLD:
+                if audio_level < self.dynamic_noise_threshold:
                     # Too quiet - likely background noise, skip processing
                     continue
                 
@@ -681,44 +742,29 @@ class VoiceEngine:
                 
                 if recognizer.AcceptWaveform(data):
                     result_json = json.loads(recognizer.Result())
-                    text = result_json.get('text', '').lower().strip()
+                    text = result_json.get('text', '').strip()
                     
-                    # Hinglish word mapping - convert common Hinglish to English for better recognition
-                    hinglish_map = {
-                        'karo': 'do it',
-                        'batao': 'tell me',
-                        'dikha': 'show',
-                        'dikho': 'show',
-                        'chalo': 'go',
-                        'ruko': 'wait',
-                        'theek': 'okay',
-                        'haan': 'yes',
-                        'nahi': 'no',
-                        'kya': 'what',
-                        'kaise': 'how',
-                        'kyun': 'why',
-                    }
+                    if not text:
+                        continue  # Skip empty results
                     
-                    # Replace Hinglish words but keep original text too
-                    original_text = text
-                    for hindi, english in hinglish_map.items():
-                        if hindi in text:
-                            text = text.replace(hindi, english)
+                    # Clean and format the recognized text
+                    recognized_text = text.lower().strip()
+                    print(f"🎤 Recognized: {recognized_text}")
                     
                     if self.continuous_mode:
                         # Continuous mode - process every recognized speech
-                        # Use original_text if it has content
-                        if original_text and self.transcript_callback:
-                            # Show both original and processed if different
-                            if text != original_text:
-                                print(f"🎤 Recognized: {original_text} → {text}")
-                            else:
-                                print(f"🎤 Recognized: {original_text}")
-                            
-                            # Always call callback with the recognized text
-                            print(f"[VOICE] Sending to callback: '{original_text}'")
+                        if recognized_text and self.transcript_callback:
+                            # Send the recognized text for processing
+                            print(f"[VOICE] Processing: '{recognized_text}'")
                             try:
-                                self.transcript_callback(original_text)  # Send original for natural processing
+                                # Call callback in a separate thread to avoid blocking
+                                callback_thread = threading.Thread(
+                                    target=self.transcript_callback,
+                                    args=(recognized_text,),
+                                    daemon=True
+                                )
+                                callback_thread.start()
+                                print(f"[VOICE] ✓ Processing started, continuing to listen...")
                             except Exception as callback_err:
                                 print(f"[VOICE] ✗ Callback error: {callback_err}")
                                 import traceback
@@ -726,11 +772,11 @@ class VoiceEngine:
                                 
                     elif self.is_awake:
                         # Wake word mode - process command after wake word
-                        if text and self.transcript_callback:
-                            print(f"🎤 Command recognized: {text}")
-                            self.transcript_callback(text)
+                        if recognized_text and self.transcript_callback:
+                            print(f"🎤 Command recognized: {recognized_text}")
+                            self.transcript_callback(recognized_text)
                             self.go_to_sleep()
-                    elif self.wake_word and self.wake_word in text:
+                    elif self.wake_word and self.wake_word in recognized_text:
                         # Wake word detected
                         print(f"✓ Wake word '{self.wake_word}' detected!")
                         self.activate_listening()
@@ -764,6 +810,16 @@ class VoiceEngine:
         if self.wake_word_activation_callback:
             self.wake_word_activation_callback()
 
+        if self.ui_update_callback:
+            self.ui_update_callback("listening")
+
+        # Show listening face on display
+        try:
+            from actuators.display import display
+            display.show_face('listening')
+        except Exception as e:
+            print(f"[Display] Could not show listening face: {e}")
+
         # Cancel any existing timeout thread
         if self.command_timeout_thread and self.command_timeout_thread.is_alive():
             self.command_timeout_thread.cancel()
@@ -779,6 +835,8 @@ class VoiceEngine:
             
         self.is_awake = False
         print("💤 Returning to wake word detection mode...")
+        if self.ui_update_callback:
+            self.ui_update_callback("idle")
         # Optionally, provide feedback to the user.
         # self.speak("Going back to sleep.")
 

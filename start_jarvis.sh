@@ -2,6 +2,10 @@
 # Navigate to the script's directory (your jarvis folder)
 cd "$(dirname "$0")"
 
+# Fix Bluetooth microphone configuration
+echo "🔧 Configuring Bluetooth microphone..."
+./fix_bluetooth_mic.sh
+
 # Activate the virtual environment
 source .venv/bin/activate
 
