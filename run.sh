@@ -12,5 +12,8 @@ fi
 # shellcheck source=/dev/null
 source "$VENV_DIR/bin/activate"
 
+# Enable MQ-3 alcohol sensor
+export MQ3_ENABLED=true
+
 echo "Running JARVIS (main.py) in virtualenv..."
 python main.py
