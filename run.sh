@@ -9,6 +9,13 @@ if [ ! -d "$VENV_DIR" ]; then
   exit 3
 fi
 
+# Start pigpiod if not running
+if ! pgrep -x "pigpiod" > /dev/null; then
+    echo "Starting pigpio daemon..."
+    sudo pigpiod
+    sleep 1
+fi
+
 # shellcheck source=/dev/null
 source "$VENV_DIR/bin/activate"
 
