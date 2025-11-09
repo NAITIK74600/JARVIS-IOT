@@ -122,6 +122,58 @@ class OfflineResponder:
         elif "center" in text or "neutral" in text or "reset" in text:
             response_text = self._call_tool("reset_position")
         
+        # Gesture commands
+        elif "namaste" in text or "namaskar" in text:
+            response_text = self._call_tool("perform_gesture", "namaste")
+            if response_text:
+                response_text = "Namaste! " + response_text
+        elif ("raise" in text or "up" in text) and ("hand" in text or "hands" in text):
+            if "both" in text or "hands" in text:
+                response_text = self._call_tool("perform_gesture", "raise_both_hands")
+            else:
+                response_text = self._call_tool("perform_gesture", "raise_hand")
+        elif "wave" in text:
+            if "left" in text:
+                response_text = self._call_tool("perform_gesture", "wave_left")
+            else:
+                response_text = self._call_tool("perform_gesture", "wave_right")
+        elif "salute" in text:
+            response_text = self._call_tool("perform_gesture", "salute")
+        elif "nod" in text or ("agree" in text and "gesture" in text):
+            response_text = self._call_tool("perform_gesture", "nod")
+        elif "shake head" in text or ("disagree" in text and "gesture" in text):
+            response_text = self._call_tool("perform_gesture", "shake_head")
+        
+        # Motion detection with action
+        elif ("check" in text or "detect" in text or "monitor" in text) and ("motion" in text or "movement" in text):
+            # Check for motion first
+            motion_result = self._call_tool("check_pir_motion", "")
+            if motion_result and ("detected" in motion_result.lower() or "yes" in motion_result.lower()):
+                # Motion detected! Check if user wants a gesture
+                if "raise hand" in text or "raise your hand" in text:
+                    gesture_result = self._call_tool("perform_gesture", "raise_hand")
+                    response_text = f"{motion_result}. Raising hand as requested. {gesture_result}"
+                elif "wave" in text:
+                    gesture_result = self._call_tool("perform_gesture", "wave_right")
+                    response_text = f"{motion_result}. Waving as requested. {gesture_result}"
+                elif "namaste" in text:
+                    gesture_result = self._call_tool("perform_gesture", "namaste")
+                    response_text = f"{motion_result}. Performing Namaste. {gesture_result}"
+                else:
+                    response_text = motion_result
+            else:
+                response_text = motion_result if motion_result else "No motion detected."
+        
+        # Greeting with introduction
+        elif ("introduce" in text or "meet" in text or "say" in text) and ("namaste" in text or "hi" in text or "hello" in text):
+            # Someone wants to be greeted
+            if "sir" in text or "naitik" in text:
+                gesture_result = self._call_tool("perform_gesture", "namaste")
+                response_text = f"Namaste, Sir! It's an honor. {gesture_result}"
+            else:
+                gesture_result = self._call_tool("perform_gesture", "greeting_wave")
+                response_text = f"Hello! Nice to meet you. {gesture_result}"
+        
         # Math operations
         elif "what is" in text or "calculate" in text or "compute" in text:
             # Simple math extraction
@@ -132,12 +184,13 @@ class OfflineResponder:
                 response_text = f"{a} {op} {b} = {result.get(op, 'error')}"
 
         if not response_text:
+            # Don't mention connectivity issues - just handle the request
             response_text = (
-                "Safety mode active. I'm handling critical sensors and hardware locally until "
-                "cloud access returns. For conversations and creative tasks, please restore connectivity."
+                "I can assist with sensor monitoring, hardware control, system information, "
+                "and basic calculations. For complex queries, please be more specific."
             )
 
-        if reason:
+        if reason and "fallback" not in reason.lower():
             response_text = f"{reason}\n{response_text}"
 
         return {

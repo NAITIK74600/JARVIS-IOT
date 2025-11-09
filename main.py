@@ -68,17 +68,23 @@ def scan_environment(_: str = "") -> str:
     """Scan the room/area/environment by moving the neck servo and using ultrasonic sensor to detect obstacles and find safe directions. Use this when asked to 'scan the room', 'scan the area', 'look around', or 'check for obstacles'."""
     global last_scan_result
     neck_servo = multi_servo_controller.get_servo('neck')
-    if not (neck_servo and sensor_manager):
-        return "Scanning unavailable: Neck servo or sensor manager not detected."
+    
+    # Check what's missing and provide specific feedback
+    if not neck_servo:
+        return "I cannot scan, Sir. The neck servo is not available."
+    if not sensor_manager:
+        return "I cannot scan, Sir. The ultrasonic sensor system is not initialized."
     
     lock = multi_servo_controller.get_lock('neck')
     if not lock.acquire(blocking=False):
-        return "Neck servo is busy. Try again shortly."
+        return "The neck servo is currently busy, Sir. Please try again in a moment."
     
     try:
         scan = perform_scan(neck_servo, sensor_manager)
         last_scan_result = scan
         return human_readable_summary(scan)
+    except Exception as e:
+        return f"Scan failed, Sir: {str(e)}"
     finally:
         lock.release()
 
@@ -87,24 +93,30 @@ def scan_environment_custom(params: str) -> str:
     """Perform a customized environmental scan with specific angles. Use when asked to scan a specific area or direction. Input format: start_angle,end_angle,step (e.g. '40,140,20' scans from 40° to 140° in 20° steps)."""
     global last_scan_result
     neck_servo = multi_servo_controller.get_servo('neck')
-    if not (neck_servo and sensor_manager):
-        return "Scanning unavailable: Neck servo or sensor manager not detected."
+    
+    # Check what's missing and provide specific feedback
+    if not neck_servo:
+        return "I cannot scan, Sir. The neck servo is not available."
+    if not sensor_manager:
+        return "I cannot scan, Sir. The ultrasonic sensor system is not initialized."
         
     lock = multi_servo_controller.get_lock('neck')
     if not lock.acquire(blocking=False):
-        return "Neck servo is busy. Try again shortly."
+        return "The neck servo is currently busy, Sir. Please try again in a moment."
         
     try:
         try:
             parts = [int(p.strip()) for p in params.split(',') if p.strip()]
             if len(parts) != 3:
-                return "Invalid format. Use start,end,step (e.g. 40,140,20)"
+                return "Invalid format, Sir. Please use: start,end,step (e.g. 40,140,20)"
             s, e, st = parts
             scan = perform_scan(neck_servo, sensor_manager, start_angle=s, end_angle=e, step=st)
             last_scan_result = scan
             return human_readable_summary(scan)
         except ValueError:
-            return "Invalid numbers. Please provide three integers: start,end,step."
+            return "Invalid numbers, Sir. Please provide three integers: start,end,step."
+        except Exception as e:
+            return f"Scan failed, Sir: {str(e)}"
     finally:
         lock.release()
 
@@ -840,8 +852,9 @@ def init_and_run_jarvis_core(ui_queue, user_input_queue):
                 label = f"[{provider_name}] " if provider_name else ""
                 log(f"Jarvis {label}{response_text}\n", "jarvis")
                 
-                if fallback_used:
-                    log("Primary LLM unavailable, switched to fallback provider.\n", "info")
+                # Don't announce fallback - just work silently
+                # if fallback_used:
+                #     log("Primary LLM unavailable, switched to fallback provider.\n", "info")
 
                 ready_status = f"Ready. Active model: {provider_name}" if provider_name else "Ready."
                 update_status(ready_status)
@@ -862,10 +875,8 @@ def init_and_run_jarvis_core(ui_queue, user_input_queue):
 
                 # SPEAK the response (TTS generation happens here)
                 if voice_engine and response_text:
-                    spoken = response_text
-                    if fallback_used:
-                        spoken = f"Switching to {provider_name}. {response_text}"
-                    voice_engine.speak(spoken)
+                    # Don't prefix with provider name in fallback
+                    voice_engine.speak(response_text)
                     
             except Exception as e:
                 error_msg = f"Error processing voice input: {e}"
@@ -942,8 +953,9 @@ def init_and_run_jarvis_core(ui_queue, user_input_queue):
 
                     label = f"[{provider_name}] " if provider_name else ""
                     log(f"Jarvis {label}{response_text}\n", "jarvis")
-                    if fallback_used:
-                        log("Primary LLM unavailable, switched to fallback provider.\n", "info")
+                    # Don't announce fallback
+                    # if fallback_used:
+                    #     log("Primary LLM unavailable, switched to fallback provider.\n", "info")
 
                     ready_status = (
                         f"Ready. Active model: {provider_name}"
@@ -953,10 +965,8 @@ def init_and_run_jarvis_core(ui_queue, user_input_queue):
                     update_status(ready_status)
 
                     if voice_engine and response_text:
-                        spoken = response_text
-                        if fallback_used:
-                            spoken = f"Switching to {provider_name}. {response_text}"
-                        voice_engine.speak(spoken)
+                        # Don't prefix with provider name in fallback
+                        voice_engine.speak(response_text)
             except queue.Empty:
                 continue  # Loop continues, allows checking for other conditions if needed
             except KeyboardInterrupt:

@@ -69,6 +69,48 @@ class BodyLanguage:
                 ("neck", 100, 1000),
                 ("neck", 90, 200),
             ],
+            "namaste": [
+                # Traditional Indian greeting - both hands raised and joined
+                ("arm_l", 120, 300),   # Raise left arm
+                ("arm_r", 60, 300),    # Raise right arm (mirror)
+                ("neck", 80, 300),     # Slight bow
+                ("neck", 90, 500),     # Return head
+                ("arm_l", 120, 800),   # Hold position
+                ("arm_r", 60, 800),
+                ("arm_l", 90, 300),    # Lower arms
+                ("arm_r", 90, 300),
+            ],
+            "greeting_wave": [
+                # Friendly wave with right hand
+                ("arm_r", 45, 200),
+                ("arm_r", 20, 300),
+                ("arm_r", 45, 300),
+                ("arm_r", 20, 300),
+                ("arm_r", 90, 200),
+            ],
+            "raise_hand": [
+                # Single hand raise (right hand)
+                ("arm_r", 30, 400),    # Raise hand up
+                ("arm_r", 30, 1000),   # Hold
+                ("arm_r", 90, 300),    # Lower
+            ],
+            "raise_both_hands": [
+                # Raise both hands up
+                ("arm_l", 130, 400),
+                ("arm_r", 50, 400),
+                ("arm_l", 130, 1000),  # Hold
+                ("arm_r", 50, 1000),
+                ("arm_l", 90, 300),    # Lower
+                ("arm_r", 90, 300),
+            ],
+            "salute": [
+                # Military-style salute
+                ("arm_r", 40, 300),    # Raise right hand
+                ("neck", 95, 200),     # Slight head tilt
+                ("arm_r", 40, 800),    # Hold
+                ("arm_r", 90, 300),    # Lower
+                ("neck", 90, 200),
+            ],
             "reset_position": [
                 ("neck", 90, 300),
                 ("arm_l", 90, 300),
