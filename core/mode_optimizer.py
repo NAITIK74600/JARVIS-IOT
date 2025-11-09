@@ -15,20 +15,17 @@ class ModeOptimizer:
     
     def __init__(self):
         # Hardware/sensor related keywords (prefer offline safety execution)
+        # NOTE: Keep this list minimal - only for direct hardware control commands
         self.offline_keywords = [
-            # Sensor commands
-            'sensor', 'temperature', 'humidity', 'motion', 'distance',
-            'ultrasonic', 'pir', 'dht', 'dht11', 'mq3', 'alcohol',
+            # Direct sensor commands
+            'check sensor', 'read sensor', 'sensor reading', 'scan environment',
+            
+            # Direct hardware control
+            'move forward', 'move backward', 'turn left', 'turn right', 'stop moving',
+            'servo angle', 'motor control',
 
-            # Hardware control / locomotion
-            'servo', 'motor', 'move', 'turn', 'forward', 'backward',
-            'left', 'right', 'stop', 'speed', 'angle', 'rotate',
-
-            # Scanning and tracking
-            'scan', 'track', 'face', 'follow', 'neck',
-
-            # Direct hardware terms
-            'gpio', 'pigpio', 'relay', 'fan', 'light'
+            # Tracking commands
+            'track face', 'follow me', 'stop tracking', 'stop following'
         ]
 
         # Hinglish hardware keywords (keep emergency-focused words only)

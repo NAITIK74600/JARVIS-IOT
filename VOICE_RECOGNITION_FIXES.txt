@@ -1,0 +1,68 @@
+JARVIS VOICE RECOGNITION & MODE SWITCHING FIXES
+================================================
+
+ISSUES IDENTIFIED:
+1. Voice recognition producing garbled text
+2. System constantly switching to offline mode
+3. Too many keywords triggering offline mode unnecessarily
+
+FIXES APPLIED:
+--------------
+
+1. REDUCED OFFLINE MODE TRIGGERS (core/mode_optimizer.py)
+   - Removed overly broad keywords like: 'sensor', 'alcohol', 'servo', 'motor', 'scan'
+   - Now only specific commands trigger offline mode:
+     * "check sensor", "read sensor", "sensor reading"
+     * "move forward", "move backward", "turn left", "turn right"
+     * "track face", "follow me", "stop tracking"
+   
+   RESULT: Normal conversation won't trigger offline mode anymore
+
+RECOMMENDATIONS FOR VOICE RECOGNITION:
+--------------------------------------
+
+1. SPEAK CLEARLY AND SLOWLY
+   - Enunciate each word
+   - Pause slightly between words
+   - Speak at normal volume (not too loud)
+
+2. REDUCE BACKGROUND NOISE
+   - Turn off fans, music, TV
+   - Close windows if traffic noise
+   - Use in quiet environment
+
+3. MICROPHONE POSITIONING
+   - Position mic 20-30cm from mouth
+   - Speak directly toward microphone
+   - Avoid covering mic with hand
+
+4. COMMAND STRUCTURE
+   Use clear, simple commands:
+   ✓ GOOD: "Jarvis, check the temperature"
+   ✓ GOOD: "Jarvis, move forward"
+   ✓ GOOD: "Jarvis, what time is it"
+   
+   ✗ BAD: Long rambling sentences
+   ✗ BAD: Speaking while moving around
+   ✗ BAD: Multiple commands at once
+
+5. IF RECOGNITION IS STILL POOR:
+   - Check microphone connection
+   - Test with: arecord -d 5 test.wav && aplay test.wav
+   - Adjust INPUT_GAIN in core/voice_engine.py (currently 3.5)
+   - Wait for dynamic calibration (first 1.5 seconds)
+
+ENABLING MQ3 SENSOR:
+-------------------
+To enable the alcohol sensor, start JARVIS with:
+  MQ3_ENABLED=true bash run.sh
+
+TESTING COMMANDS:
+----------------
+Try these simple commands after fixing:
+- "Hello Jarvis"
+- "What time is it"
+- "Check temperature"
+- "Move forward"
+- "Center your neck"
+
